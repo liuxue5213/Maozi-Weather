@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     )
 
     # 应用配置
-    APP_NAME: str = "毛仔天气"
+    APP_NAME: str = "帽子天气"
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
     APP_HOST: str = "0.0.0.0"

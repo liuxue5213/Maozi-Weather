@@ -2,9 +2,9 @@
   <div class="login-page">
     <div class="login-box">
       <div class="login-header">
-        <el-icon size="40" color="#409EFF"><Lightning /></el-icon>
-        <h1>毛仔天气</h1>
-        <p>气象数据应用系统 - 管理后台</p>
+        <div class="logo-emoji">🎩</div>
+        <h1>帽子天气</h1>
+        <p>气象数据管理与分析平台</p>
       </div>
 
       <el-form
@@ -42,7 +42,9 @@
         </el-form-item>
       </el-form>
 
-      <div class="data-source-tag">数据来源：中国气象局</div>
+      <div class="footer-note">
+        帽子天气 · 数据来源：中国气象局
+      </div>
     </div>
   </div>
 </template>
@@ -90,30 +92,37 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f7fa;
 }
 
 .login-box {
-  width: 400px;
-  padding: 40px;
+  width: 380px;
+  padding: 40px 36px;
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e8e8e8;
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 32px;
+
+  .logo-emoji {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
 
   h1 {
-    margin: 10px 0 5px;
+    margin: 0 0 6px;
     font-size: 24px;
-    color: #303133;
+    font-weight: 700;
+    color: #333;
   }
 
   p {
     margin: 0;
-    color: #909399;
+    color: #888;
     font-size: 14px;
   }
 }
@@ -122,10 +131,10 @@ async function handleLogin() {
   width: 100%;
 }
 
-.data-source-tag {
+.footer-note {
   text-align: center;
-  color: #c0c4cc;
+  color: #bbb;
   font-size: 12px;
-  margin-top: 10px;
+  margin-top: 20px;
 }
 </style>

@@ -1,23 +1,21 @@
 <template>
   <el-container class="layout">
-    <el-aside width="220px" class="aside">
+    <el-aside width="200px" class="aside">
       <div class="logo">
-        <el-icon size="24"><Lightning /></el-icon>
-        <span>毛仔天气</span>
+        <span class="logo-icon">🎩</span>
+        <span class="logo-text">帽子天气</span>
       </div>
       <el-menu
         :default-active="route.path"
         router
-        background-color="#001529"
-        text-color="#fff"
-        active-text-color="#409EFF"
+        class="menu"
       >
         <el-menu-item
           v-for="item in menuItems"
           :key="item.path"
           :index="`/${item.path}`"
         >
-          <el-icon><component :is="item.icon" /></el-icon>
+          <span class="menu-icon">{{ item.icon }}</span>
           <span>{{ item.title }}</span>
         </el-menu-item>
       </el-menu>
@@ -31,7 +29,7 @@
         <div class="header-right">
           <el-dropdown @command="handleCommand">
             <span class="user-info">
-              <el-icon><User /></el-icon>
+              <span class="user-avatar">管</span>
               {{ userStore.userInfo?.username || '管理员' }}
             </span>
             <template #dropdown>
@@ -51,7 +49,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessageBox } from 'element-plus'
@@ -61,14 +58,14 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const menuItems = [
-  { path: 'dashboard', title: '控制台', icon: 'Odometer' },
-  { path: 'cities', title: '城市站点管理', icon: 'Location' },
-  { path: 'weather', title: '实时天气', icon: 'Sunny' },
-  { path: 'history', title: '历史数据同步', icon: 'Download' },
-  { path: 'history-query', title: '历史数据查询', icon: 'Search' },
-  { path: 'analysis', title: '数据分析', icon: 'DataAnalysis' },
-  { path: 'settings', title: '系统配置', icon: 'Setting' },
-  { path: 'logs', title: '监控日志', icon: 'Document' },
+  { path: 'dashboard', title: '首页', icon: '🏠' },
+  { path: 'weather', title: '实时天气', icon: '🌤️' },
+  { path: 'cities', title: '城市管理', icon: '🏙️' },
+  { path: 'history', title: '历史同步', icon: '📥' },
+  { path: 'history-query', title: '数据查询', icon: '🔍' },
+  { path: 'analysis', title: '数据分析', icon: '📈' },
+  { path: 'settings', title: '系统配置', icon: '⚙️' },
+  { path: 'logs', title: '监控日志', icon: '📋' },
 ]
 
 async function handleCommand(command) {
@@ -86,8 +83,8 @@ async function handleCommand(command) {
 }
 
 .aside {
-  background: #001529;
-  color: #fff;
+  background: #fff;
+  border-right: 1px solid #e8e8e8;
 
   .logo {
     height: 60px;
@@ -95,14 +92,43 @@ async function handleCommand(command) {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    color: #fff;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid #e8e8e8;
+
+    .logo-icon {
+      font-size: 24px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: #333;
+    }
   }
 
-  .el-menu {
+  .menu {
     border-right: none;
+    padding-top: 8px;
+
+    .menu-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+
+    .el-menu-item {
+      height: 44px;
+      line-height: 44px;
+      margin: 4px 8px;
+      border-radius: 8px;
+
+      &.is-active {
+        background: #f0f7ff;
+        color: #409eff;
+      }
+
+      &:hover {
+        background: #f5f7fa;
+      }
+    }
   }
 }
 
@@ -111,20 +137,35 @@ async function handleCommand(command) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 0 24px;
+  border-bottom: 1px solid #e8e8e8;
 
   .header-left {
     font-size: 16px;
     font-weight: 500;
+    color: #333;
   }
 
   .user-info {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
-    color: #606266;
+    color: #555;
+    font-size: 14px;
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e8f4fd;
+      color: #409eff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
   }
 }
 </style>

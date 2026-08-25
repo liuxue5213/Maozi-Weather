@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="毛仔天气 - 气象数据应用系统后端 API",
+    description="帽子天气 - 气象数据应用系统后端 API",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
