@@ -2,6 +2,7 @@ from app.models.user import User
 from app.models.city import City, UserCity
 from app.models.weather import WeatherRealtime, WeatherForecast, WeatherWarning, HistorySyncTask, HistoryObservation
 from app.models.air_quality import AirQuality, LifeIndex
+from app.models.log import ApiCallLog
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "HistoryObservation",
     "AirQuality",
     "LifeIndex",
+    "ApiCallLog",
 ]

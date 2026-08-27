@@ -16,6 +16,7 @@ from datetime import datetime
 import httpx
 
 from app.core.config import settings
+from app.services.air_quality_service import calculate_aqi
 
 logger = logging.getLogger(__name__)
 
@@ -325,36 +326,33 @@ class OpenMeteoClient:
             return None
 
         current = data["current"]
-        aqi = current.get("european_aqi")
 
-        # 转换为国标 AQI（简化映射）
-        # 欧标 AQI: 0-20优 20-40良 40-60轻度 60-80中度 80-100重度 100+严重
-        if aqi is not None:
-            if aqi <= 20:
-                level = "优"
-            elif aqi <= 40:
-                level = "良"
-            elif aqi <= 60:
-                level = "轻度污染"
-            elif aqi <= 80:
-                level = "中度污染"
-            elif aqi <= 100:
-                level = "重度污染"
-            else:
-                level = "严重污染"
-        else:
-            level = None
+        # 用污染物浓度换算国标 AQI（GB 3095-2012）
+        # Open-Meteo 单位: pm2_5/pm10/so2/no2/o3 为 µg/m³，carbon_monoxide 为 µg/m³
+        # 国标 CO 浓度限值为 mg/m³，需 ÷1000
+        co = current.get("carbon_monoxide")
+        co = co / 1000.0 if co is not None else None
+        cn = calculate_aqi(
+            pm25=current.get("pm2_5"),
+            pm10=current.get("pm10"),
+            so2=current.get("sulphur_dioxide"),
+            no2=current.get("nitrogen_dioxide"),
+            co=co,
+            o3=current.get("ozone"),
+        )
 
         return {
             "city_id": city_id,
-            "aqi": aqi,
-            "aqi_level": level,
+            "aqi": cn["aqi"],
+            "aqi_level": cn["level"],
+            "aqi_primary": cn["primary"],
             "pm25": current.get("pm2_5"),
             "pm10": current.get("pm10"),
             "co": current.get("carbon_monoxide"),
             "no2": current.get("nitrogen_dioxide"),
             "so2": current.get("sulphur_dioxide"),
             "o3": current.get("ozone"),
+            "us_aqi": current.get("us_aqi"),
             "data_source": "Open-Meteo",
         }
 

@@ -217,66 +217,69 @@ def calc_all_life_indices(temperature: float, humidity: float = 50,
 
 # ===== 日出日落计算 =====
 
-def calc_sunrise_sunset(latitude: float, longitude: float, date: datetime = None) -> dict:
+def calc_sunrise_sunset(latitude: float, longitude: float, date: datetime = None,
+                        tz_offset_hours: float = 8.0) -> dict:
     """
-    计算日出日落时间
+    计算日出日落时间（当地时间）
 
-    使用简化算法（基于太阳赤纬和时角）
+    NOAA 简化算法：太阳赤纬 + 均时差 + -0.833° 民用晨昏线（大气折射与日面半径修正）。
+    精度约 ±2 分钟。
 
     Args:
-        latitude: 纬度
-        longitude: 经度
+        latitude: 纬度（北正）
+        longitude: 经度（东正）
         date: 日期（默认今天）
+        tz_offset_hours: 目标时区偏移（小时），中国大陆统一为北京时间 +8
 
     Returns:
-        dict: {sunrise, sunset, daylight_hours}
+        dict: {sunrise "HH:MM", sunset "HH:MM", daylight_hours}
     """
     if date is None:
         date = datetime.now()
 
-    # 计算一年中的第几天
     day_of_year = date.timetuple().tm_yday
 
-    # 太阳赤纬（简化公式）
+    # 太阳赤纬（度，Cooper 公式）
     declination = 23.45 * math.sin(math.radians((360 / 365) * (day_of_year - 81)))
 
-    # 时角
+    # 均时差（分钟）：真太阳时与平太阳时之差
+    B = math.radians((360 / 365) * (day_of_year - 81))
+    equation_of_time = 9.87 * math.sin(2 * B) - 7.53 * math.cos(B) - 1.5 * math.sin(B)
+
     lat_rad = math.radians(latitude)
     dec_rad = math.radians(declination)
+    h0 = math.radians(-0.833)  # 日面中心在地平线下 0.833° 时为日出/日落
 
-    # 日出时角
-    cos_omega = -math.tan(lat_rad) * math.tan(dec_rad)
+    cos_omega = (math.sin(h0) - math.sin(lat_rad) * math.sin(dec_rad)) / (
+        math.cos(lat_rad) * math.cos(dec_rad)
+    )
 
-    # 处理极昼极夜
+    # 极昼/极夜
     if cos_omega > 1:
-        return {"sunrise": None, "sunset": None, "daylight_hours": 0}  # 极夜
-    elif cos_omega < -1:
-        return {"sunrise": None, "sunset": None, "daylight_hours": 24}  # 极昼
+        return {"sunrise": None, "sunset": None, "daylight_hours": 0}
+    if cos_omega < -1:
+        return {"sunrise": None, "sunset": None, "daylight_hours": 24}
 
-    omega = math.degrees(math.acos(cos_omega))
+    omega = math.degrees(math.acos(cos_omega))  # 半昼长对应的时角（度）
 
-    # 日出日落时间（UTC小时）
-    sunrise_utc = 12 - (omega / 15)
-    sunset_utc = 12 + (omega / 15)
+    # 太阳正午的 UTC 时刻（小时）= 12 - 经度/15 - 均时差
+    solar_noon_utc = 12 - longitude / 15 - equation_of_time / 60
+    sunrise_utc = solar_noon_utc - omega / 15
+    sunset_utc = solar_noon_utc + omega / 15
 
-    # 转换为本地时间（经度修正）
-    sunrise_local = sunrise_utc + longitude / 15
-    sunset_local = sunset_utc + longitude / 15
+    def _fmt(utc_hour: float) -> str:
+        local_hour = (utc_hour + tz_offset_hours) % 24
+        hour = int(local_hour)
+        minute = int(round((local_hour - hour) * 60))
+        if minute == 60:
+            hour = (hour + 1) % 24
+            minute = 0
+        return f"{hour:02d}:{minute:02d}"
 
-    # 规范化到 0-24 范围
-    sunrise_local = sunrise_local % 24
-    sunset_local = sunset_local % 24
-
-    # 转换为时分
-    sunrise_hour = int(sunrise_local)
-    sunrise_min = int((sunrise_local - sunrise_hour) * 60)
-    sunset_hour = int(sunset_local)
-    sunset_min = int((sunset_local - sunset_hour) * 60)
-
-    daylight_hours = sunset_utc - sunrise_utc
+    daylight_hours = 2 * omega / 15
 
     return {
-        "sunrise": f"{sunrise_hour:02d}:{sunrise_min:02d}",
-        "sunset": f"{sunset_hour:02d}:{sunset_min:02d}",
+        "sunrise": _fmt(sunrise_utc),
+        "sunset": _fmt(sunset_utc),
         "daylight_hours": round(daylight_hours, 1),
     }

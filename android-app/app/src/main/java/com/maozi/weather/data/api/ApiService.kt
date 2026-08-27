@@ -9,6 +9,8 @@ import com.maozi.weather.data.model.SunInfo
 import com.maozi.weather.data.model.TokenResponse
 import com.maozi.weather.data.model.UserCity
 import com.maozi.weather.data.model.WeatherForecast
+import com.maozi.weather.data.model.WeatherHistory
+import com.maozi.weather.data.model.WeatherForecastResponse
 import com.maozi.weather.data.model.WeatherRealtime
 import com.maozi.weather.data.model.WeatherWarning
 import retrofit2.http.Body
@@ -42,17 +44,30 @@ interface ApiService {
 
     // ===== 天气 =====
     @GET("/api/weather/realtime/{cityId}")
-    suspend fun getRealtime(@Path("cityId") cityId: Int): WeatherRealtime
+    suspend fun getRealtime(
+        @Path("cityId") cityId: Int,
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+    ): WeatherRealtime
 
     @GET("/api/weather/forecast/{cityId}")
-    suspend fun getForecast(@Path("cityId") cityId: Int): List<WeatherForecast>
+    suspend fun getForecast(
+        @Path("cityId") cityId: Int,
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("days") days: Int = 7,
+    ): WeatherForecastResponse
 
     @GET("/api/weather/warning/{cityId}")
     suspend fun getWarning(@Path("cityId") cityId: Int): List<WeatherWarning>
 
     // ===== 空气质量 & 生活指数 & 日出日落 =====
     @GET("/api/weather/air_quality/{cityId}")
-    suspend fun getAirQuality(@Path("cityId") cityId: Int): AirQuality
+    suspend fun getAirQuality(
+        @Path("cityId") cityId: Int,
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+    ): AirQuality
 
     @GET("/api/weather/life_index/{cityId}")
     suspend fun getLifeIndex(
@@ -80,4 +95,13 @@ interface ApiService {
         @Query("page") page: Int = 1,
         @Query("page_size") pageSize: Int = 100,
     ): List<HistoryObservation>
+
+    @GET("/api/weather/historical/{cityId}")
+    suspend fun getHistorical(
+        @Path("cityId") cityId: Int,
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("start_date") startDate: String,
+        @Query("end_date") endDate: String,
+    ): List<WeatherHistory>
 }

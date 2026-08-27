@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  仅 debug 构建生效的网络安全配置：
+  允许任意明文 HTTP（真机连电脑局域网 IP 调试后端时必需）。
+  release 构建沿用 main 源集的严格配置（仅 localhost 类地址放行）。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

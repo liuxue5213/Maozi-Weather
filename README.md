@@ -42,9 +42,15 @@ python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env  # 配置数据库连接等
-alembic upgrade head  # 执行数据库迁移
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# 建表与初始数据（管理员账号、全国城市库）：
+docker-compose up -d mysql redis   # 若尚未启动
+docker exec -i $(docker-compose ps -q mysql) mysql -uroot -p < ../mysql/init/01_init.sql
+
+uvicorn app.main:app --reload --host 0.0.0.0 --port 60245
 ```
+
+> alembic 已列入依赖但迁移目录尚未建立；当前以 `mysql/init/01_init.sql` 作为唯一建表入口。
 
 后端启动后访问：
 - API 文档：http://localhost:60245/docs

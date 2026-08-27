@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帽子天气 - 查看天气</title>
+    <link rel="icon" type="image/svg+xml" href="/weather-icon.svg" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; padding: 24px 0 16px; color: #fff; }
+        .header h1 { font-size: 28px; }
+        .header p { opacity: 0.85; margin-top: 4px; }
+
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-box input {
+            flex: 1; padding: 14px 18px; border: none; border-radius: 12px;
+            font-size: 16px; outline: none; background: rgba(255,255,255,0.95);
+        }
+        .search-box button {
+            padding: 14px 24px; background: rgba(255,255,255,0.25); color: #fff;
+            border: 2px solid rgba(255,255,255,0.5); border-radius: 12px;
+            font-size: 16px; cursor: pointer;
+        }
+        .search-box button:hover { background: rgba(255,255,255,0.35); }
+        .search-results {
+            background: rgba(255,255,255,0.95); border-radius: 12px;
+            margin-bottom: 16px; overflow: hidden; display: none;
+        }
+        .search-results .item { padding: 14px 18px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+        .search-results .item:hover { background: #f5f7fa; }
+
+        /* 当前天气大卡片 */
+        .current-card {
+            background: rgba(255,255,255,0.95); border-radius: 20px; padding: 28px; margin-bottom: 16px;
+        }
+        .current-main { text-align: center; padding: 16px 0; }
+        .current-main .temp { font-size: 72px; font-weight: 200; color: #333; line-height: 1; }
+        .current-main .weather { font-size: 22px; color: #555; margin-top: 8px; }
+        .current-main .city { font-size: 15px; color: #999; margin-top: 6px; }
+        .current-details {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;
+        }
+        .detail-item { text-align: center; }
+        .detail-item .label { font-size: 12px; color: #999; }
+        .detail-item .value { font-size: 18px; font-weight: 600; color: #333; margin-top: 4px; }
+
+        /* 逐小时预报 */
+        .hourly-card {
+            background: rgba(255,255,255,0.95); border-radius: 20px; padding: 20px;
+            margin-bottom: 16px; overflow-x: auto;
+        }
+        .hourly-card h3 { font-size: 15px; color: #555; margin-bottom: 12px; }
+        .hourly-list { display: flex; gap: 12px; min-width: max-content; }
+        .hourly-item { text-align: center; padding: 10px 8px; min-width: 56px; }
+        .hourly-item .time { font-size: 12px; color: #999; }
+        .hourly-item .icon { font-size: 24px; margin: 6px 0; }
+        .hourly-item .temp { font-size: 15px; font-weight: 600; color: #333; }
+        .hourly-item .pop { font-size: 11px; color: #409eff; margin-top: 2px; }
+
+        /* 逐日预报 */
+        .daily-card { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 20px; margin-bottom: 16px; }
+        .daily-card h3 { font-size: 15px; color: #555; margin-bottom: 12px; }
+        .daily-item {
+            display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .daily-item:last-child { border-bottom: none; }
+        .daily-item .date { width: 80px; font-size: 14px; color: #555; }
+        .daily-item .icon { width: 40px; text-align: center; font-size: 20px; }
+        .daily-item .weather-desc { flex: 1; font-size: 14px; color: #666; }
+        .daily-item .temp-range { font-size: 14px; color: #333; }
+        .daily-item .temp-range .high { font-weight: 600; }
+        .daily-item .temp-range .low { color: #999; }
+
+        /* 空气质量 */
+        .air-card { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 20px; margin-bottom: 16px; }
+        .air-card h3 { font-size: 15px; color: #555; margin-bottom: 12px; }
+        .air-main { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+        .air-aqi {
+            width: 64px; height: 64px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; font-weight: 700; color: #fff;
+        }
+        .air-aqi.level-1 { background: #52c41a; }
+        .air-aqi.level-2 { background: #bae637; color: #333; }
+        .air-aqi.level-3 { background: #faad14; }
+        .air-aqi.level-4 { background: #ff7a45; }
+        .air-aqi.level-5 { background: #ff4d4f; }
+        .air-aqi.level-6 { background: #722ed1; }
+        .air-level-text { font-size: 18px; font-weight: 600; color: #333; }
+        .air-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .air-detail-item { text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .air-detail-item .label { font-size: 11px; color: #999; }
+        .air-detail-item .value { font-size: 15px; font-weight: 600; color: #333; margin-top: 2px; }
+
+        /* 生活指数 */
+        .life-card { background: rgba(255,255,255,0.95); border-radius: 20px; padding: 20px; margin-bottom: 16px; }
+        .life-card h3 { font-size: 15px; color: #555; margin-bottom: 12px; }
+        .life-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .life-item { text-align: center; padding: 14px 8px; background: #f8f9fa; border-radius: 10px; }
+        .life-item .icon { font-size: 24px; }
+        .life-item .name { font-size: 12px; color: #666; margin-top: 4px; }
+        .life-item .level { font-size: 13px; font-weight: 600; color: #409eff; margin-top: 2px; }
+
+        .loading { text-align: center; padding: 40px; color: #fff; }
+        .error { text-align: center; padding: 20px; color: #fff; background: rgba(255,0,0,0.2); border-radius: 12px; }
+        .footer { text-align: center; padding: 24px; color: rgba(255,255,255,0.7); font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>☀️ 帽子天气</h1>
+            <p>实时天气 · 空气质量 · 生活指数</p>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="cityInput" placeholder="输入城市名称，如：北京、上海、天津" />
+            <button onclick="searchCity()" id="searchBtn">搜索</button>
+        </div>
+
+        <div id="searchResults" class="search-results"></div>
+
+        <div id="weatherContent">
+            <div class="loading">搜索城市查看天气</div>
+        </div>
+
+        <div class="footer">帽子天气 · 数据来源：Open-Meteo / 中国气象局</div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/public';
+        document.getElementById('cityInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchCity();
+        });
+
+        async function searchCity() {
+            const name = document.getElementById('cityInput').value.trim();
+            if (!name) return;
+            const btn = document.getElementById('searchBtn');
+            btn.disabled = true; btn.textContent = '搜索中...';
+            try {
+                const resp = await fetch(`${API_BASE}/search/city?name=${encodeURIComponent(name)}`);
+                const data = await resp.json();
+                if (data.results && data.results.length > 0) {
+                    showResults(data.results);
+                } else {
+                    document.getElementById('searchResults').innerHTML = '<div class="loading">未找到相关城市</div>';
+                    document.getElementById('searchResults').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('searchResults').innerHTML = '<div class="error">搜索失败，请重试</div>';
+                document.getElementById('searchResults').style.display = 'block';
+            }
+            btn.disabled = false; btn.textContent = '搜索';
+        }
+
+        function showResults(results) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = results.map((r, i) =>
+                `<div class="item" onclick="selectCity(${r.latitude}, ${r.longitude}, '${r.name}', '${r.admin1 || ''}')">${r.name} - ${r.admin1 || r.country || ''}</div>`
+            ).join('');
+            container.style.display = 'block';
+        }
+
+        async function selectCity(lat, lon, name, admin) {
+            document.getElementById('searchResults').style.display = 'none';
+            const content = document.getElementById('weatherContent');
+            content.innerHTML = '<div class="loading">加载中...</div>';
+            try {
+                const resp = await fetch(`${API_BASE}/weather?latitude=${lat}&longitude=${lon}`);
+                const data = await resp.json();
+                renderWeather(data, name, admin);
+            } catch (err) {
+                content.innerHTML = '<div class="error">获取天气失败，请重试</div>';
+            }
+        }
+
+        function renderWeather(data, cityName, admin) {
+            const current = data.current;
+            const air = data.air_quality;
+            const daily = data.daily || [];
+            const hourly = data.hourly || [];
+            const lifeIndices = data.life_indices || [];
+            const content = document.getElementById('weatherContent');
+
+            const weatherIcons = {
+                '晴': '☀️', '大部晴朗': '🌤️', '多云': '⛅', '阴天': '☁️',
+                '雾': '🌫️', '雾凇': '🌫️',
+                '小毛毛雨': '🌦️', '毛毛雨': '🌦️', '大毛毛雨': '🌧️',
+                '小雨': '🌧️', '中雨': '🌧️', '大雨': '🌧️',
+                '小雪': '🌨️', '中雪': '🌨️', '大雪': '❄️',
+                '雪粒': '🌨️', '小阵雨': '🌦️', '中阵雨': '🌧️', '大阵雨': '⛈️',
+                '小阵雪': '🌨️', '大阵雪': '❄️',
+                '雷暴': '⛈️', '雷暴+小冰雹': '⛈️', '雷暴+大冰雹': '⛈️',
+            };
+
+            let html = '';
+
+            // 当前天气
+            html += `
+                <div class="current-card">
+                    <div class="current-main">
+                        <div class="temp">${current.temperature}°C</div>
+                        <div class="weather">${weatherIcons[current.weather] || '🌡️'} ${current.weather}</div>
+                        <div class="city">${cityName} ${admin ? '- ' + admin : ''}</div>
+                    </div>
+                    <div class="current-details">
+                        <div class="detail-item"><div class="label">体感</div><div class="value">${current.feels_like}°C</div></div>
+                        <div class="detail-item"><div class="label">湿度</div><div class="value">${current.humidity}%</div></div>
+                        <div class="detail-item"><div class="label">风速</div><div class="value">${current.wind_speed}km/h</div></div>
+                        <div class="detail-item"><div class="label">紫外线</div><div class="value">${current.uv_index ?? '-'}</div></div>
+                        <div class="detail-item"><div class="label">气压</div><div class="value">${current.pressure_msl}hPa</div></div>
+                        <div class="detail-item"><div class="label">降水</div><div class="value">${current.precipitation}mm</div></div>
+                        <div class="detail-item"><div class="label">云量</div><div class="value">${current.cloud_cover}%</div></div>
+                        <div class="detail-item"><div class="label">能见度</div><div class="value">${current.visibility ? (current.visibility/1000).toFixed(1)+'km' : '-'}</div></div>
+                    </div>
+                </div>
+            `;
+
+            // 逐小时预报
+            if (hourly.length > 0) {
+                html += `<div class="hourly-card"><h3>⏰ 未来48小时</h3><div class="hourly-list">`;
+                hourly.slice(0, 24).forEach(h => {
+                    html += `
+                        <div class="hourly-item">
+                            <div class="time">${h.time ? h.time.substring(11, 16) : '-'}</div>
+                            <div class="icon">${weatherIcons[h.weather] || '🌡️'}</div>
+                            <div class="temp">${h.temperature}°</div>
+                            <div class="pop">${h.precipitation_probability ?? '-'}%</div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+
+            // 逐日预报
+            if (daily.length > 0) {
+                html += `<div class="daily-card"><h3>📅 未来16天</h3>`;
+                daily.forEach(d => {
+                    html += `
+                        <div class="daily-item">
+                            <div class="date">${formatDate(d.date)}</div>
+                            <div class="icon">${weatherIcons[d.weather] || '🌡️'}</div>
+                            <div class="weather-desc">${d.weather || '-'} · UV ${d.uv_index_max ?? '-'}</div>
+                            <div class="temp-range"><span class="high">${d.temp_max}°</span><span class="low"> / ${d.temp_min}°</span></div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+
+            // 空气质量
+            html += `
+                <div class="air-card">
+                    <h3>🌬️ 空气质量</h3>
+                    <div class="air-main">
+                        <div class="air-aqi level-${getAqiLevel(air.aqi)}">${air.aqi ?? '-'}</div>
+                        <div class="air-level-text">${air.aqi_level || '暂无数据'}</div>
+                    </div>
+                    <div class="air-details">
+                        <div class="air-detail-item"><div class="label">PM2.5</div><div class="value">${air.pm25 ?? '-'}μg/m³</div></div>
+                        <div class="air-detail-item"><div class="label">PM10</div><div class="value">${air.pm10 ?? '-'}μg/m³</div></div>
+                        <div class="air-detail-item"><div class="label">CO</div><div class="value">${air.co ?? '-'}μg/m³</div></div>
+                        <div class="air-detail-item"><div class="label">NO₂</div><div class="value">${air.no2 ?? '-'}μg/m³</div></div>
+                        <div class="air-detail-item"><div class="label">SO₂</div><div class="value">${air.so2 ?? '-'}μg/m³</div></div>
+                        <div class="air-detail-item"><div class="label">O₃</div><div class="value">${air.o3 ?? '-'}μg/m³</div></div>
+                    </div>
+                </div>
+            `;
+
+            // 生活指数
+            if (lifeIndices.length > 0) {
+                const lifeIcons = { 'clothing': '👔', 'car_wash': '🚗', 'sport': '🏃', 'uv': '☀️', 'travel': '✈️' };
+                html += `<div class="life-card"><h3>💡 生活指数</h3><div class="life-grid">`;
+                lifeIndices.forEach(idx => {
+                    html += `
+                        <div class="life-item">
+                            <div class="icon">${lifeIcons[idx.index_type] || '📊'}</div>
+                            <div class="name">${idx.index_name}</div>
+                            <div class="level">${idx.index_level}</div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+
+            content.innerHTML = html;
+        }
+
+        function getAqiLevel(aqi) {
+            if (aqi == null) return 0;
+            if (aqi <= 20) return 1; if (aqi <= 40) return 2;
+            if (aqi <= 60) return 3; if (aqi <= 80) return 4;
+            if (aqi <= 100) return 5; return 6;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            const days = ['周日','周一','周二','周三','周四','周五','周六'];
+            return `${d.getMonth()+1}/${d.getDate()} ${days[d.getDay()]}`;
+        }
+    </script>
+</body>
+</html>

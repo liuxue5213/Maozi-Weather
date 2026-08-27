@@ -14,7 +14,7 @@
       <div class="stat-card stat-cities">
         <div class="stat-icon">📍</div>
         <div class="stat-info">
-          <div class="stat-number">{{ stats.cityCount }}</div>
+          <div class="stat-number">{{ formatCount(stats.cityCount) }}</div>
           <div class="stat-label">关注城市</div>
         </div>
       </div>
@@ -28,8 +28,8 @@
       <div class="stat-card stat-records">
         <div class="stat-icon">📁</div>
         <div class="stat-info">
-          <div class="stat-number">{{ stats.historyRecords }}</div>
-          <div class="stat-label">历史记录(万)</div>
+          <div class="stat-number">{{ formatCount(stats.historyRecords) }}</div>
+          <div class="stat-label">历史记录</div>
         </div>
       </div>
     </div>
@@ -92,11 +92,28 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { getStats } from '@/api/stats'
 
 const stats = ref({
   cityCount: 0,
+  followCount: 0,
   syncTasks: 0,
   historyRecords: 0,
+})
+
+// 超过一万显示 x.x万，避免长数字撑爆卡片
+function formatCount(n) {
+  if (n == null) return '—'
+  return n >= 10000 ? `${(n / 10000).toFixed(1)}万` : String(n)
+}
+
+onMounted(async () => {
+  try {
+    const res = await getStats()
+    if (res) stats.value = { ...stats.value, ...res }
+  } catch (error) {
+    // 统计加载失败保持 0 展示，错误已由拦截器提示
+  }
 })
 
 const hourGreeting = computed(() => {
@@ -113,10 +130,6 @@ const weatherEmoji = computed(() => {
   const h = new Date().getHours()
   if (h >= 6 && h < 18) return '☀️'
   return '🌙'
-})
-
-onMounted(async () => {
-  // TODO: 获取真实数据
 })
 </script>
 

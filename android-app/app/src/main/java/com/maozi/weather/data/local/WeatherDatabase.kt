@@ -28,7 +28,7 @@ abstract class WeatherDatabase : RoomDatabase() {
                     context.applicationContext,
                     WeatherDatabase::class.java,
                     "maozi_weather.db"
-                ).build()
+                ).enableMultiInstanceInvalidation().build()
                 INSTANCE = instance
                 instance
             }

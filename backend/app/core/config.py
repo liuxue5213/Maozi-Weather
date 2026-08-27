@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_DB: int = 0
 
+    # CORS 允许的前端来源（逗号分隔），例如: http://localhost:5173,https://web.maozi.com
+    # 生产环境必填；留空时开发环境(APP_DEBUG=True)放行全部来源，生产环境(APP_DEBUG=False)必须显式配置
+    CORS_ORIGINS: str = ""
+
     # CMA 气象数据网
     CMA_APPID: str = ""
     CMA_APPSECRET: str = ""

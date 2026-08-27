@@ -10,7 +10,7 @@ class WeatherRealtimeOut(BaseModel):
     feels_like: float | None = None
     humidity: float | None = None
     pressure: float | None = None
-    wind_direction: str | None = None
+    wind_direction: str | int | None = None
     wind_speed: float | None = None
     precipitation: float | None = None
     weather_desc: str | None = None

@@ -76,6 +76,16 @@ data class WeatherForecast(
     val pop: Double? = null,
 )
 
+/**
+ * 后端 /api/weather/forecast/{cityId} 返回结构（实况/预报/日出日落分离）
+ */
+@Serializable
+data class WeatherForecastResponse(
+    val daily: List<WeatherForecast> = emptyList(),
+    val hourly: List<WeatherForecast> = emptyList(),
+    val sun: SunInfo? = null,
+)
+
 @Serializable
 data class WeatherWarning(
     @SerialName("city_id") val cityId: Int,
@@ -101,6 +111,20 @@ data class HistoryObservation(
     val precipitation: Double? = null,
     @SerialName("is_missing") val isMissing: Int = 0,
     @SerialName("missing_fields") val missingFields: String? = null,
+)
+
+/**
+ * 后端 /api/weather/historical/{city_id} 返回结构（Open-Meteo 历史天气，按日）
+ */
+@Serializable
+data class WeatherHistory(
+    @SerialName("city_id") val cityId: Int,
+    val date: String,
+    @SerialName("temp_max") val tempMax: Double? = null,
+    @SerialName("temp_min") val tempMin: Double? = null,
+    val precipitation: Double? = null,
+    @SerialName("wind_speed_max") val windSpeedMax: Double? = null,
+    @SerialName("data_source") val dataSource: String = "Open-Meteo",
 )
 
 // ===== 空气质量 & 生活指数 & 日出日落 =====

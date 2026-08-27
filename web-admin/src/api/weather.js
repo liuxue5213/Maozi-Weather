@@ -7,7 +7,7 @@ export function getRealtime(cityId, latitude, longitude) {
   })
 }
 
-export function getForecast(cityId, latitude, longitude, days = 16) {
+export function getForecast(cityId, latitude, longitude, days = 7) {
   return request({
     url: `/weather/forecast/${cityId}`,
     params: { latitude, longitude, days },

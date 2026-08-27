@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +41,7 @@ async def create_sync_task(
     await db.commit()
     await db.refresh(task)
 
-    # TODO: 提交到异步任务队列执行
+    # 由调度器每分钟扫描 pending 任务并执行（见 services/scheduler.py）
     return task
 
 
@@ -90,7 +90,7 @@ async def retry_task(
     task.error_msg = None
     await db.commit()
 
-    # TODO: 重新提交到任务队列
+    # 已置回 pending，等待调度器重新领取执行
     return {"message": "任务已重新提交"}
 
 

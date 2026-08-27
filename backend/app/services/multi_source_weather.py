@@ -142,7 +142,7 @@ class MultiSourceWeatherService:
 
                 # 逐小时
                 hourly_data = await qweather_client.get_hourly_forecast(location_id, 24)
-                # TODO: 标准化逐小时数据
+                result["hourly"] = qweather_client.normalize_hourly_forecast(hourly_data, city_id)
 
                 logger.info(f"QWeather 预报获取成功: city_id={city_id}")
             except Exception as e:
@@ -204,15 +204,17 @@ class MultiSourceWeatherService:
         return result
 
     @staticmethod
-    async def get_warning(city_id: int, location_id: str | None = None) -> list[dict]:
+    async def get_warning(city_id: int, location_id: str | None = None,
+                          city_name: str | None = None) -> list[dict]:
         """
         获取气象灾害预警
 
-        QWeather 有专门的预警接口，Open-Meteo 无此功能
-        注意：预警需要 QWeather 的 LocationID，不是 city_id
+        QWeather 有专门的预警接口，Open-Meteo 无此功能。
+        LocationID 解析顺序：显式传入 > Redis 缓存映射 > 按城市名在线查询（结果缓存 7 天）
         """
         redis = await get_redis()
         cache_key = f"weather:warning:{city_id}"
+        location_map_key = f"weather:qlocation:{city_id}"
 
         # 1. 查缓存
         import json
@@ -220,9 +222,23 @@ class MultiSourceWeatherService:
         if cached:
             return json.loads(cached)
 
+        # 2. 确定 QWeather LocationID
+        if not location_id:
+            location_id = await redis.get(location_map_key)
+
+        if not location_id and city_name:
+            try:
+                matches = await qweather_client.lookup_city(city_name)
+                if matches:
+                    location_id = matches[0].get("id")
+                    await redis.setex(location_map_key, 7 * 24 * 3600, location_id)
+                    logger.info(f"QWeather LocationID 已解析并缓存: {city_name} -> {location_id}")
+            except Exception as e:
+                logger.warning(f"QWeather 城市查询失败: {city_name}: {e}")
+
         result = []
 
-        # 2. 尝试 QWeather（需要 LocationID）
+        # 3. 尝试 QWeather
         if location_id:
             try:
                 data = await qweather_client.get_warning(location_id)

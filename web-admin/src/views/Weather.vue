@@ -2,11 +2,16 @@
   <div class="page-container">
     <div class="page-header">
       <h2>实时天气</h2>
-      <span class="data-source-tag">数据源：Open-Meteo / 和风天气</span>
     </div>
 
     <div class="card">
-      <el-select v-model="selectedCity" placeholder="选择城市" style="width: 200px" @change="fetchWeather">
+      <el-select
+        v-model="selectedCity"
+        placeholder="选择城市"
+        style="width: 240px"
+        filterable
+        @change="fetchWeather"
+      >
         <el-option
           v-for="city in cities"
           :key="city.id"
@@ -14,7 +19,8 @@
           :value="city.id"
         />
       </el-select>
-      <span v-if="dataSource" class="source-tag">当前来源: {{ dataSource }}</span>
+      <span v-if="loading" class="source-tag">加载中...</span>
+      <span v-else-if="dataSource" class="source-tag">数据来源: {{ dataSource }}</span>
     </div>
 
     <el-row :gutter="20" style="margin-top: 20px">
@@ -29,7 +35,7 @@
               <el-descriptions-item label="体感">{{ realtime.feels_like }}°C</el-descriptions-item>
               <el-descriptions-item label="湿度">{{ realtime.humidity }}%</el-descriptions-item>
               <el-descriptions-item label="气压">{{ realtime.pressure }}hPa</el-descriptions-item>
-              <el-descriptions-item label="风向风速">{{ realtime.wind_direction }} {{ realtime.wind_speed }}m/s</el-descriptions-item>
+              <el-descriptions-item label="风速">{{ realtime.wind_speed }}m/s</el-descriptions-item>
               <el-descriptions-item label="降水">{{ realtime.precipitation }}mm</el-descriptions-item>
             </el-descriptions>
 
@@ -37,17 +43,13 @@
             <div v-if="sunInfo" class="sun-info">
               <el-divider>日出日落</el-divider>
               <el-descriptions :column="2" size="small">
-                <el-descriptions-item label="日出">
-                  <el-icon><Top /></el-icon> {{ formatTime(sunInfo.sunrise) }}
-                </el-descriptions-item>
-                <el-descriptions-item label="日落">
-                  <el-icon><Bottom /></el-icon> {{ formatTime(sunInfo.sunset) }}
-                </el-descriptions-item>
+                <el-descriptions-item label="日出">{{ formatTime(sunInfo.sunrise) }}</el-descriptions-item>
+                <el-descriptions-item label="日落">{{ formatTime(sunInfo.sunset) }}</el-descriptions-item>
                 <el-descriptions-item label="昼长" :span="2">{{ sunInfo.daylight_hours }} 小时</el-descriptions-item>
               </el-descriptions>
             </div>
           </div>
-          <el-empty v-else description="暂无数据" />
+          <el-empty v-else description="请选择城市" />
         </div>
       </el-col>
 
@@ -67,10 +69,9 @@
               <el-descriptions-item label="NO₂">{{ airQuality.no2 }}</el-descriptions-item>
               <el-descriptions-item label="CO">{{ airQuality.co }}</el-descriptions-item>
               <el-descriptions-item label="O₃">{{ airQuality.o3 }}</el-descriptions-item>
-              <el-descriptions-item label="首要污染物" :span="2">{{ airQuality.aqi_primary || '-' }}</el-descriptions-item>
             </el-descriptions>
           </div>
-          <el-empty v-else description="暂无空气质量数据" />
+          <el-empty v-else description="请选择城市" />
         </div>
       </el-col>
 
@@ -104,23 +105,18 @@
       <el-row :gutter="20" v-if="lifeIndices.length">
         <el-col :span="4" v-for="item in lifeIndices" :key="item.index_type">
           <div class="index-card">
-            <div class="index-icon">
-              <el-icon :size="24" :color="indexColor(item.index_level)">
-                <component :is="indexIcon(item.index_type)" />
-              </el-icon>
-            </div>
             <div class="index-name">{{ item.index_name }}</div>
             <div class="index-level" :style="{ color: indexColor(item.index_level) }">{{ item.index_level }}</div>
             <div class="index-desc">{{ item.index_desc }}</div>
           </div>
         </el-col>
       </el-row>
-      <el-empty v-else description="暂无生活指数数据" />
+      <el-empty v-else description="请选择城市" />
     </div>
 
     <!-- 预报 -->
     <div class="card" style="margin-top: 20px">
-      <h3>未来16天预报</h3>
+      <h3>未来7天预报</h3>
       <el-table :data="forecast" size="small" v-if="forecast.length">
         <el-table-column prop="forecast_time" label="日期" width="120" />
         <el-table-column prop="weather_desc" label="天气" />
@@ -128,23 +124,25 @@
           <template #default="{ row }">{{ row.temp_min }}~{{ row.temp_max }}°C</template>
         </el-table-column>
         <el-table-column prop="precipitation_sum" label="降水" width="80" />
-        <el-table-column prop="wind_speed_max" label="最大风速" width="100" />
       </el-table>
-      <el-empty v-else description="暂无预报数据" />
+      <el-empty v-else description="请选择城市" />
     </div>
 
-    <div class="data-source-tag">数据来源：Open-Meteo / 和风天气 / 中国气象局</div>
+    <div class="data-source-tag">数据来源：{{ dataSource || 'Open-Meteo（和风天气增强）' }} | 帽子天气</div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Top, Bottom, Umbrella, Van, Basketball, Sunny, Position } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Top, Bottom } from '@element-plus/icons-vue'
 import { getRealtime, getForecast, getWarning } from '@/api/weather'
 import { getAirQuality, getLifeIndex, getSunriseSunset } from '@/api/air'
+import { getAllCities } from '@/api/city'
 
 const cities = ref([])
 const selectedCity = ref(null)
+const currentCityInfo = ref(null)
 const realtime = ref(null)
 const forecast = ref([])
 const warnings = ref([])
@@ -152,6 +150,7 @@ const airQuality = ref(null)
 const lifeIndices = ref([])
 const sunInfo = ref(null)
 const dataSource = ref('')
+const loading = ref(false)
 
 const aqiColor = computed(() => {
   if (!airQuality.value) return '#909399'
@@ -164,17 +163,6 @@ const aqiColor = computed(() => {
   return '#8B0000'
 })
 
-function indexIcon(type) {
-  const icons = {
-    clothing: Umbrella,
-    car_wash: Van,
-    sport: Basketball,
-    uv: Sunny,
-    travel: Position,
-  }
-  return icons[type] || Sunny
-}
-
 function indexColor(level) {
   if (level && (level.includes('适宜') || level.includes('舒适'))) return '#67C23A'
   if (level && (level.includes('较'))) return '#E6A23C'
@@ -182,42 +170,71 @@ function indexColor(level) {
   return '#409EFF'
 }
 
+// 加载城市列表
+async function loadCities() {
+  try {
+    const res = await getAllCities({ page: 1, page_size: 1000 })
+    cities.value = res?.items || []
+    console.log('加载城市数量:', cities.value.length)
+  } catch (error) {
+    console.error('加载城市列表失败:', error)
+    ElMessage.error('加载城市列表失败')
+  }
+}
+
 async function fetchWeather() {
   if (!selectedCity.value) return
 
-  // 获取城市经纬度（实际项目中从城市库获取）
-  const cityInfo = cities.value.find(c => c.id === selectedCity.value)
-  const lat = cityInfo?.latitude || 39.9042
-  const lon = cityInfo?.longitude || 116.4074
+  // 获取城市信息
+  const city = cities.value.find(c => c.id === selectedCity.value)
+  if (!city) {
+    ElMessage.warning('未找到城市信息')
+    return
+  }
 
-  // 实时天气
-  realtime.value = await getRealtime(selectedCity.value, lat, lon)
-  dataSource.value = realtime.value?.data_source || ''
+  currentCityInfo.value = city
+  const lat = city.latitude
+  const lon = city.longitude
 
-  // 预报
-  const forecastData = await getForecast(selectedCity.value, lat, lon, 16)
-  forecast.value = forecastData.daily || []
+  if (!lat || !lon) {
+    ElMessage.warning('该城市缺少经纬度信息')
+    return
+  }
 
-  // 预警
-  warnings.value = await getWarning(selectedCity.value)
+  loading.value = true
 
-  // 空气质量
-  airQuality.value = await getAirQuality(selectedCity.value)
+  try {
+    // 先获取实时天气
+    const realtimeRes = await getRealtime(city.id, lat, lon)
+    realtime.value = realtimeRes
+    dataSource.value = realtimeRes?.data_source || ''
 
-  // 生活指数
-  const temp = realtime.value?.temperature || 20
-  const humidity = realtime.value?.humidity || 50
-  const precip = realtime.value?.precipitation || 0
-  const wind = realtime.value?.wind_speed || 0
-  lifeIndices.value = await getLifeIndex(selectedCity.value, {
-    temperature: temp,
-    humidity,
-    precipitation: precip,
-    wind_speed: wind,
-  })
+    // 获取其他数据
+    const [forecastRes, warningRes, airRes, lifeRes, sunRes] = await Promise.all([
+      getForecast(city.id, lat, lon, 7),
+      getWarning(city.id),
+      getAirQuality(city.id, lat, lon),
+      getLifeIndex(city.id, {
+        temperature: realtimeRes?.temperature || 20,
+        humidity: realtimeRes?.humidity || 50,
+        precipitation: realtimeRes?.precipitation || 0,
+        wind_speed: realtimeRes?.wind_speed || 0,
+        uv: realtimeRes?.uv_index || 5,
+      }),
+      getSunriseSunset(city.id, { latitude: lat, longitude: lon }),
+    ])
 
-  // 日出日落
-  sunInfo.value = await getSunriseSunset(selectedCity.value, { latitude: lat, longitude: lon })
+    forecast.value = forecastRes.daily || []
+    warnings.value = warningRes
+    airQuality.value = airRes
+    lifeIndices.value = lifeRes
+    sunInfo.value = sunRes
+  } catch (error) {
+    console.error('获取天气数据失败:', error)
+    ElMessage.error('获取天气数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 function warningType(level) {
@@ -225,28 +242,21 @@ function warningType(level) {
   return map[level] || 'info'
 }
 
-// 格式化时间（Open-Meteo 返回 ISO 格式如 "2024-01-01T05:42"）
+// 格式化时间
 function formatTime(timeStr) {
   if (!timeStr) return '-'
-  // 如果是 ISO 格式，提取时分部分
   if (timeStr.includes('T')) {
     return timeStr.split('T')[1]?.substring(0, 5) || timeStr
   }
   return timeStr
 }
 
-onMounted(async () => {
-  // TODO: 获取关注城市列表
+onMounted(() => {
+  loadCities()
 })
 </script>
 
 <style lang="scss" scoped>
-.data-source-tag {
-  font-size: 12px;
-  color: #909399;
-  margin-left: 16px;
-}
-
 .source-tag {
   font-size: 12px;
   color: #409eff;
@@ -297,10 +307,6 @@ onMounted(async () => {
   border: 1px solid #ebeef5;
   border-radius: 8px;
   background: #fafafa;
-
-  .index-icon {
-    margin-bottom: 8px;
-  }
 
   .index-name {
     font-size: 14px;

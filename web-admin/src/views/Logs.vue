@@ -71,7 +71,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getApiLogs, getTaskLogs, getCacheStats } from '@/api/logs'
 
 const apiLogs = ref([])
 const taskLogs = ref([])
@@ -80,6 +81,19 @@ const cacheStats = ref({
   realtimeCount: 0,
   forecastCount: 0,
   warningCount: 0,
+})
+
+onMounted(async () => {
+  const [apiRes, taskRes, cacheRes] = await Promise.allSettled([
+    getApiLogs({ page: 1, page_size: 100 }),
+    getTaskLogs({ page: 1, page_size: 50 }),
+    getCacheStats(),
+  ])
+  if (apiRes.status === 'fulfilled') apiLogs.value = apiRes.value?.items || []
+  if (taskRes.status === 'fulfilled') taskLogs.value = taskRes.value?.items || []
+  if (cacheRes.status === 'fulfilled' && cacheRes.value) {
+    cacheStats.value = { ...cacheStats.value, ...cacheRes.value }
+  }
 })
 </script>
 

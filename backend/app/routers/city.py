@@ -1,13 +1,14 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.core.database import get_db
 from app.models.city import City, UserCity
 from app.models.user import User
-from app.schemas.city import CityOut, UserCityAdd, UserCityOut
+from app.schemas.city import CityCreate, CityOut, CityUpdate, UserCityAdd, UserCityOut
 from app.routers.auth import get_current_user
 
 router = APIRouter()
@@ -21,10 +22,11 @@ async def list_user_cities(
     """获取我的关注城市列表"""
     result = await db.execute(
         select(UserCity)
+        .options(joinedload(UserCity.city))
         .where(UserCity.user_id == current_user.id)
         .order_by(UserCity.sort_order)
     )
-    return result.scalars().all()
+    return result.scalars().unique().all()
 
 
 @router.post("/add", response_model=UserCityOut)
@@ -57,8 +59,14 @@ async def add_city(
     )
     db.add(user_city)
     await db.commit()
-    await db.refresh(user_city)
-    return user_city
+
+    # 重新带出关联的 city（避免 async 懒加载报错）
+    result = await db.execute(
+        select(UserCity)
+        .options(joinedload(UserCity.city))
+        .where(UserCity.id == user_city.id)
+    )
+    return result.scalar_one()
 
 
 @router.delete("/delete/{user_city_id}")
@@ -99,18 +107,97 @@ async def search_cities(
     return result.scalars().all()
 
 
-@router.get("/all", response_model=list[CityOut])
+@router.get("/all")
 async def list_all_cities(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(1000, ge=1, le=2000),
+    keyword: str | None = Query(None, max_length=50, description="按城市名过滤"),
 ):
-    """获取城市库列表（分页）"""
+    """获取城市库列表（分页，带总数，支持按名称过滤）"""
+    base = select(City).where(City.is_active == 1)
+    if keyword:
+        base = base.where(City.city_name.contains(keyword))
+    total = (await db.execute(select(func.count()).select_from(base.subquery()))).scalar()
     result = await db.execute(
-        select(City)
-        .where(City.is_active == 1)
-        .offset((page - 1) * page_size)
-        .limit(page_size)
+        base.order_by(City.id).offset((page - 1) * page_size).limit(page_size)
     )
-    return result.scalars().all()
+    return {
+        "total": total or 0,
+        "items": [CityOut.model_validate(c) for c in result.scalars().all()],
+    }
+
+
+# ===== 城市库管理（仅管理员） =====
+
+async def _require_admin(user: User) -> None:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+
+
+@router.post("/manage/create", response_model=CityOut)
+async def create_city(
+    data: CityCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """新增城市/站点"""
+    _require_admin(current_user)
+
+    exists = await db.execute(select(City).where(City.city_name == data.city_name))
+    if exists.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="同名城市已存在")
+
+    city = City(**data.model_dump())
+    db.add(city)
+    await db.commit()
+    await db.refresh(city)
+    return city
+
+
+@router.put("/manage/{city_id}", response_model=CityOut)
+async def update_city(
+    city_id: int,
+    data: CityUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """修改城市信息"""
+    _require_admin(current_user)
+
+    result = await db.execute(select(City).where(City.id == city_id))
+    city = result.scalar_one_or_none()
+    if not city:
+        raise HTTPException(status_code=404, detail="城市不存在")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(city, field, value)
+    await db.commit()
+    await db.refresh(city)
+    return city
+
+
+@router.delete("/manage/{city_id}")
+async def delete_city(
+    city_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """删除城市（有关注记录时级联删除关注关系）"""
+    _require_admin(current_user)
+
+    result = await db.execute(select(City).where(City.id == city_id))
+    city = result.scalar_one_or_none()
+    if not city:
+        raise HTTPException(status_code=404, detail="城市不存在")
+
+    follow_count = (
+        await db.execute(
+            select(func.count()).select_from(UserCity).where(UserCity.city_id == city_id)
+        )
+    ).scalar()
+
+    await db.delete(city)
+    await db.commit()
+    return {"message": f"删除成功（同时移除 {follow_count or 0} 条关注记录）"}

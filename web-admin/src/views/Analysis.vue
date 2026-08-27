@@ -78,17 +78,68 @@ async function handleAnalyze() {
     end_time: dateRange.value?.[1] || '',
   }
   stats.value = await analyzeStation(params)
-  renderChart()
+  await renderChart()
 }
 
 async function renderChart() {
   if (!queryForm.station_id || !chartRef.value) return
-  const chart = echarts.init(chartRef.value)
-  // TODO: 获取月度数据渲染图表
+
+  const year = new Date().getFullYear()
+  let monthly = []
+  try {
+    const res = await monthlyAnalysis({ station_id: queryForm.station_id, year })
+    monthly = res?.monthly || []
+  } catch (error) {
+    return // 错误已由拦截器提示
+  }
+
+  if (!monthly.length) {
+    const chart = echarts.getInstanceByDom(chartRef.value) || echarts.init(chartRef.value)
+    chart.setOption({
+      title: { text: `${year} 年暂无月度数据`, left: 'center', top: 'middle', textStyle: { color: '#909399', fontSize: 14 } },
+      xAxis: { show: false },
+      yAxis: { show: false },
+    })
+    return
+  }
+
+  // 补齐 1-12 月，缺数据月份为 null（折线断开）
+  const byMonth = Object.fromEntries(monthly.map(m => [m.month, m]))
+  const months = Array.from({ length: 12 }, (_, i) => i + 1)
+
+  const chart = echarts.getInstanceByDom(chartRef.value) || echarts.init(chartRef.value)
   chart.setOption({
-    xAxis: { type: 'category', data: [] },
-    yAxis: { type: 'value' },
-    series: [],
+    title: { text: `${year} 年月度趋势`, left: 'center' },
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['平均温', '最高温', '最低温', '降水'], top: 28 },
+    grid: { top: 70, bottom: 40, left: 60, right: 60 },
+    xAxis: { type: 'category', data: months.map(m => `${m}月`) },
+    yAxis: [
+      { type: 'value', name: '温度(°C)' },
+      { type: 'value', name: '降水(mm)' },
+    ],
+    series: [
+      {
+        name: '平均温', type: 'line', smooth: true,
+        data: months.map(m => byMonth[m]?.avg_temp ?? null),
+        itemStyle: { color: '#409EFF' },
+      },
+      {
+        name: '最高温', type: 'line', smooth: true,
+        data: months.map(m => byMonth[m]?.max_temp ?? null),
+        itemStyle: { color: '#F56C6C' },
+      },
+      {
+        name: '最低温', type: 'line', smooth: true,
+        data: months.map(m => byMonth[m]?.min_temp ?? null),
+        itemStyle: { color: '#67C23A' },
+      },
+      {
+        name: '降水', type: 'bar', yAxisIndex: 1,
+        data: months.map(m => byMonth[m]?.total_precip ?? null),
+        itemStyle: { color: '#79BBFF' },
+      },
+    ],
   })
 }
 </script>

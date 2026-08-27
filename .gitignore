@@ -35,3 +35,6 @@ local.properties
 
 # Docker
 *.log
+
+# Local tool artifacts
+.workbuddy/

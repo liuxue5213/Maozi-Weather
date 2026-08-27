@@ -21,12 +21,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.maozi.weather.data.repository.WeatherRepository
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -35,6 +38,8 @@ fun LoginScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -53,7 +58,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "毛仔天气",
+            text = "帽子天气",
             style = MaterialTheme.typography.headlineMedium,
         )
 
@@ -90,8 +95,17 @@ fun LoginScreen(
         Button(
             onClick = {
                 loading = true
-                // TODO: 调用登录接口
-                onLoginSuccess()
+                error = null
+                scope.launch {
+                    try {
+                        WeatherRepository.login(username, password)
+                        loading = false
+                        onLoginSuccess()
+                    } catch (e: Exception) {
+                        loading = false
+                        error = "登录失败，请检查用户名或密码"
+                    }
+                }
             },
             enabled = !loading && username.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
@@ -103,10 +117,19 @@ fun LoginScreen(
             }
         }
 
+        if (error != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = error ?: "",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "数据来源：中国气象局",
+            text = "数据来源：Open-Meteo（和风天气增强）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

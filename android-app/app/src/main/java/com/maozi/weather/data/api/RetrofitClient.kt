@@ -2,6 +2,7 @@ package com.maozi.weather.data.api
 
 import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.maozi.weather.BuildConfig
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -11,9 +12,9 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // TODO: 替换为实际后端地址
-    // 10.0.2.2 是 Android 模拟器访问宿主机的地址
-    private const val BASE_URL = "http://10.0.2.2:60245/"
+    // 后端地址通过 buildConfigField 注入，便于多环境切换（见 build.gradle.kts）
+    // 10.0.2.2 是 Android 模拟器访问宿主机的地址；真机请改为电脑局域网 IP 或正式域名
+    private val BASE_URL: String = BuildConfig.BASE_URL
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -46,7 +47,12 @@ object RetrofitClient {
                 chain.proceed(request)
             }
             .addInterceptor(HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                // 生产包只打印基础信息，避免日志泄露含 Token 的响应体
+                level = if (BuildConfig.DEBUG) {
+                    HttpLoggingInterceptor.Level.BODY
+                } else {
+                    HttpLoggingInterceptor.Level.BASIC
+                }
             })
             .build()
 

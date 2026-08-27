@@ -3,7 +3,7 @@
 
 使用多源天气服务，自动切换/备份：
 - Open-Meteo：主数据源（免费、无需注册）
-- QWeather：增强数据源（空气质量、预警、生活指数）
+- QWeather：增强数据源（需 API Key）
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,7 +61,14 @@ async def get_warning(
     current_user: User = Depends(get_current_user),
 ):
     """获取城市气象预警"""
-    result = await multi_source_weather.get_warning(city_id, location_id)
+    from app.models.city import City
+    from sqlalchemy import select as _select
+
+    city_name = (
+        await db.execute(_select(City.city_name).where(City.id == city_id))
+    ).scalar_one_or_none()
+
+    result = await multi_source_weather.get_warning(city_id, location_id, city_name=city_name)
     return result
 
 
