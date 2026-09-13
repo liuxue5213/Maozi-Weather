@@ -27,6 +27,9 @@
           <span>{{ route.meta.title }}</span>
         </div>
         <div class="header-right">
+          <el-tooltip :content="isDark ? '切换到亮色模式' : '切换到暗色模式'" placement="bottom">
+            <el-button :icon="isDark ? Sunny : Moon" circle text @click="toggleTheme" />
+          </el-tooltip>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <span class="user-avatar">管</span>
@@ -51,11 +54,14 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
+import { useTheme } from '@/store/theme'
 import { ElMessageBox } from 'element-plus'
+import { Sunny, Moon } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const { isDark, toggle: toggleTheme } = useTheme()
 
 const menuItems = [
   { path: 'dashboard', title: '首页', icon: '🏠' },
@@ -83,8 +89,8 @@ async function handleCommand(command) {
 }
 
 .aside {
-  background: #fff;
-  border-right: 1px solid #e8e8e8;
+  background: var(--el-bg-color);
+  border-right: 1px solid var(--el-border-color-lighter);
 
   .logo {
     height: 60px;
@@ -92,7 +98,7 @@ async function handleCommand(command) {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border-bottom: 1px solid #e8e8e8;
+    border-bottom: 1px solid var(--el-border-color-lighter);
 
     .logo-icon {
       font-size: 24px;
@@ -101,7 +107,7 @@ async function handleCommand(command) {
     .logo-text {
       font-size: 18px;
       font-weight: 700;
-      color: #333;
+      color: var(--el-text-color-primary);
     }
   }
 
@@ -121,29 +127,29 @@ async function handleCommand(command) {
       border-radius: 8px;
 
       &.is-active {
-        background: #f0f7ff;
-        color: #409eff;
+        background: var(--el-color-primary-light-9);
+        color: var(--el-color-primary);
       }
 
       &:hover {
-        background: #f5f7fa;
+        background: var(--el-fill-color-light);
       }
     }
   }
 }
 
 .header {
-  background: #fff;
+  background: var(--el-bg-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 
   .header-left {
     font-size: 16px;
     font-weight: 500;
-    color: #333;
+    color: var(--el-text-color-primary);
   }
 
   .user-info {
@@ -151,15 +157,15 @@ async function handleCommand(command) {
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    color: #555;
+    color: var(--el-text-color-regular);
     font-size: 14px;
 
     .user-avatar {
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: #e8f4fd;
-      color: #409eff;
+      background: var(--el-color-primary-light-8);
+      color: var(--el-color-primary);
       display: flex;
       align-items: center;
       justify-content: center;

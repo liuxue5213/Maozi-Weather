@@ -114,18 +114,11 @@
       <el-empty v-else description="请选择城市" />
     </div>
 
-    <!-- 预报 -->
+    <!-- 未来7天预报图表 -->
     <div class="card" style="margin-top: 20px">
       <h3>未来7天预报</h3>
-      <el-table :data="forecast" size="small" v-if="forecast.length">
-        <el-table-column prop="forecast_time" label="日期" width="120" />
-        <el-table-column prop="weather_desc" label="天气" />
-        <el-table-column label="温度">
-          <template #default="{ row }">{{ row.temp_min }}~{{ row.temp_max }}°C</template>
-        </el-table-column>
-        <el-table-column prop="precipitation_sum" label="降水" width="80" />
-      </el-table>
-      <el-empty v-else description="请选择城市" />
+      <div v-show="forecast.length" ref="forecastChartRef" class="forecast-chart"></div>
+      <el-empty v-if="!forecast.length" description="请选择城市" />
     </div>
 
     <div class="data-source-tag">数据来源：{{ dataSource || 'Open-Meteo（和风天气增强）' }} | 帽子天气</div>
@@ -133,12 +126,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Top, Bottom } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 import { getRealtime, getForecast, getWarning } from '@/api/weather'
 import { getAirQuality, getLifeIndex, getSunriseSunset } from '@/api/air'
 import { getAllCities } from '@/api/city'
+import { isDark } from '@/store/theme'
 
 const cities = ref([])
 const selectedCity = ref(null)
@@ -151,17 +145,21 @@ const lifeIndices = ref([])
 const sunInfo = ref(null)
 const dataSource = ref('')
 const loading = ref(false)
+const forecastChartRef = ref(null)
+let forecastChart = null
 
-const aqiColor = computed(() => {
-  if (!airQuality.value) return '#909399'
-  const aqi = airQuality.value.aqi
+const aqiColor = computed(() => aqiLevelColor(airQuality.value?.aqi))
+
+// 国标 AQI 分级配色：优绿/良黄/轻度橙/中度红/重度紫/严重褐红
+function aqiLevelColor(aqi) {
   if (!aqi) return '#909399'
-  if (aqi <= 50) return '#67C23A'
-  if (aqi <= 100) return '#E6A23C'
-  if (aqi <= 150) return '#F56C6C'
-  if (aqi <= 200) return '#FF0000'
-  return '#8B0000'
-})
+  if (aqi <= 50) return '#4CAF50'
+  if (aqi <= 100) return '#FFC107'
+  if (aqi <= 150) return '#FF9800'
+  if (aqi <= 200) return '#F44336'
+  if (aqi <= 300) return '#9C27B0'
+  return '#8D2E2E'
+}
 
 function indexColor(level) {
   if (level && (level.includes('适宜') || level.includes('舒适'))) return '#67C23A'
@@ -170,12 +168,89 @@ function indexColor(level) {
   return '#409EFF'
 }
 
+// 渲染 7 天温度/降水混合图
+function renderForecastChart() {
+  if (!forecastChartRef.value || !forecast.value.length) return
+  if (!forecastChart) {
+    forecastChart = echarts.init(forecastChartRef.value)
+  }
+  const dark = isDark.value
+  const axisColor = dark ? '#A3A6AD' : '#606266'
+  const splitColor = dark ? 'rgba(255,255,255,0.12)' : '#EBEEF5'
+  const days = forecast.value.map(d => (d.forecast_time || '').slice(5))
+  const maxTemps = forecast.value.map(d => d.temp_max ?? null)
+  const minTemps = forecast.value.map(d => d.temp_min ?? null)
+  const precip = forecast.value.map(d => d.precipitation_sum ?? 0)
+
+  forecastChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis' },
+    legend: {
+      data: ['最高温', '最低温', '降水量'],
+      textStyle: { color: axisColor },
+      top: 0,
+    },
+    grid: { left: 48, right: 48, top: 36, bottom: 28 },
+    xAxis: {
+      type: 'category',
+      data: days,
+      axisLabel: { color: axisColor },
+      axisLine: { lineStyle: { color: splitColor } },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '°C',
+        nameTextStyle: { color: axisColor },
+        axisLabel: { color: axisColor },
+        splitLine: { lineStyle: { color: splitColor } },
+      },
+      {
+        type: 'value',
+        name: 'mm',
+        nameTextStyle: { color: axisColor },
+        axisLabel: { color: axisColor },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '最高温',
+        type: 'line',
+        smooth: true,
+        data: maxTemps,
+        itemStyle: { color: '#F56C6C' },
+        label: { show: true, position: 'top', color: axisColor, formatter: '{c}°' },
+      },
+      {
+        name: '最低温',
+        type: 'line',
+        smooth: true,
+        data: minTemps,
+        itemStyle: { color: '#409EFF' },
+        label: { show: true, position: 'bottom', color: axisColor, formatter: '{c}°' },
+      },
+      {
+        name: '降水量',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: precip,
+        itemStyle: { color: 'rgba(64,158,255,0.35)', borderRadius: [4, 4, 0, 0] },
+        barWidth: '30%',
+      },
+    ],
+  })
+}
+
+function handleResize() {
+  forecastChart?.resize()
+}
+
 // 加载城市列表
 async function loadCities() {
   try {
     const res = await getAllCities({ page: 1, page_size: 1000 })
     cities.value = res?.items || []
-    console.log('加载城市数量:', cities.value.length)
   } catch (error) {
     console.error('加载城市列表失败:', error)
     ElMessage.error('加载城市列表失败')
@@ -229,6 +304,8 @@ async function fetchWeather() {
     airQuality.value = airRes
     lifeIndices.value = lifeRes
     sunInfo.value = sunRes
+    await nextTick()
+    renderForecastChart()
   } catch (error) {
     console.error('获取天气数据失败:', error)
     ElMessage.error('获取天气数据失败')
@@ -236,6 +313,11 @@ async function fetchWeather() {
     loading.value = false
   }
 }
+
+// 暗色模式切换后重绘图表配色
+watch(isDark, () => {
+  nextTick(renderForecastChart)
+})
 
 function warningType(level) {
   const map = { '红色': 'error', '橙色': 'warning', '黄色': 'info', '蓝色': 'info' }
@@ -253,6 +335,13 @@ function formatTime(timeStr) {
 
 onMounted(() => {
   loadCities()
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  forecastChart?.dispose()
+  forecastChart = null
 })
 </script>
 
@@ -304,13 +393,13 @@ onMounted(() => {
 .index-card {
   text-align: center;
   padding: 16px 8px;
-  border: 1px solid #ebeef5;
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
-  background: #fafafa;
+  background: var(--el-fill-color-light);
 
   .index-name {
     font-size: 14px;
-    color: #606266;
+    color: var(--el-text-color-regular);
     margin-bottom: 4px;
   }
 
@@ -322,9 +411,14 @@ onMounted(() => {
 
   .index-desc {
     font-size: 12px;
-    color: #909399;
+    color: var(--el-text-color-secondary);
     line-height: 1.4;
   }
+}
+
+.forecast-chart {
+  width: 100%;
+  height: 320px;
 }
 
 .card h3 {

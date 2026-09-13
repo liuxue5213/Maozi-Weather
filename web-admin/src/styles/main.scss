@@ -5,7 +5,8 @@
 body {
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', Arial, sans-serif;
-  background-color: #f0f2f5;
+  background-color: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
   margin: 0;
 }
 
@@ -24,15 +25,15 @@ body {
 }
 
 .card {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--el-box-shadow-lighter);
 }
 
 .data-source-tag {
   text-align: center;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
   padding: 10px;
 }
