@@ -41,6 +41,13 @@ object WeatherRepository {
         return resp
     }
 
+    /** 游客登录：无需账号密码，携带定位时服务端自动关注最近城市 */
+    suspend fun loginGuest(latitude: Double?, longitude: Double?): TokenResponse {
+        val resp = api.loginGuest(latitude, longitude)
+        TokenManager.saveToken(appContext, resp.accessToken)
+        return resp
+    }
+
     suspend fun logout() {
         try {
             api.logout()

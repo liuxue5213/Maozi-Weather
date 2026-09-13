@@ -19,10 +19,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // 后端基础地址：默认模拟器访问宿主机；
-        // 真机调试时用 -PdevBaseUrl=http://<电脑局域网IP>:60245/ 覆盖
+        // 后端基础地址：默认指向正式服务器（真机可直接用）；
+        // 模拟器/本地调试时用 -PdevBaseUrl=http://10.0.2.2:60245/ 覆盖
         val devBaseUrl: String =
-            (project.findProperty("devBaseUrl") as String?) ?: "http://10.0.2.2:60245/"
+            (project.findProperty("devBaseUrl") as String?) ?: "http://120.48.13.152:60245/"
         buildConfigField("String", "BASE_URL", "\"$devBaseUrl\"")
     }
 

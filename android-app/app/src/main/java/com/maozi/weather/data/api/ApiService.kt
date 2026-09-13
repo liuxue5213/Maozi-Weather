@@ -26,6 +26,13 @@ interface ApiService {
     @POST("/api/auth/login")
     suspend fun login(@Body request: LoginRequest): TokenResponse
 
+    /** 游客登录（App 默认免登录入口），携带定位时后端自动关注最近城市 */
+    @POST("/api/auth/guest")
+    suspend fun loginGuest(
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+    ): TokenResponse
+
     @POST("/api/auth/logout")
     suspend fun logout(): Map<String, String>
 
