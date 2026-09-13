@@ -97,9 +97,8 @@ dependencies {
     // WorkManager (后台任务)
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
-    // Glance 桌面小组件
-    implementation("androidx.glance:glance-appwidget:1.0.0")
-    debugImplementation("androidx.glance:glance-appwidget-preview:1.0.0")
+    // Glance 桌面小组件（1.1.0 提供 defaultWeight/updateAll 等 API）
+    implementation("androidx.glance:glance-appwidget:1.1.0")
 
     // 测试
     testImplementation("junit:junit:4.13.2")

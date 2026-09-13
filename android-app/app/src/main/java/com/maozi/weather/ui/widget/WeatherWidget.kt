@@ -7,9 +7,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.GlanceTheme
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
-import androidx.glance.color.ColorProvider
+import androidx.glance.unit.ColorProvider as UnitColorProvider
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.provideContent
@@ -17,7 +18,6 @@ import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
-import androidx.glance.layout.defaultWeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -63,7 +63,7 @@ class WeatherWidget : GlanceAppWidget() {
             modifier = GlanceModifier
                 .fillMaxSize()
                 .cornerRadius(20.dp)
-                .background(ColorProvider(Color(bgTop)))
+                .background(UnitColorProvider(Color(bgTop)))
                 .padding(14.dp),
         ) {
             Row(
@@ -75,20 +75,20 @@ class WeatherWidget : GlanceAppWidget() {
                     style = TextStyle(
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        color = ColorProvider(Color.White),
+                        color = UnitColorProvider(Color.White),
                     ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     text = "帽子天气",
-                    style = TextStyle(fontSize = 12.sp, color = ColorProvider(Color(0xCCFFFFFF))),
+                    style = TextStyle(fontSize = 12.sp, color = UnitColorProvider(Color(0xCCFFFFFF))),
                 )
             }
             Spacer(GlanceModifier.height(8.dp))
             if (cities.isEmpty()) {
                 Text(
                     text = "打开 App 添加关注城市",
-                    style = TextStyle(fontSize = 12.sp, color = ColorProvider(Color.White)),
+                    style = TextStyle(fontSize = 12.sp, color = UnitColorProvider(Color.White)),
                 )
             } else {
                 cities.take(3).forEach { c ->
@@ -105,7 +105,7 @@ class WeatherWidget : GlanceAppWidget() {
                             text = c.cityName,
                             style = TextStyle(
                                 fontSize = 13.sp,
-                                color = ColorProvider(Color.White),
+                                color = UnitColorProvider(Color.White),
                             ),
                         )
                         Spacer(GlanceModifier.defaultWeight())
@@ -114,7 +114,7 @@ class WeatherWidget : GlanceAppWidget() {
                             style = TextStyle(
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ColorProvider(Color.White),
+                                color = UnitColorProvider(Color.White),
                             ),
                         )
                     }

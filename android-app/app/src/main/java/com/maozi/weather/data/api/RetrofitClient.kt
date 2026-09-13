@@ -21,8 +21,8 @@ object RetrofitClient {
         coerceInputValues = true
     }
 
-    private var apiService: ApiService? = null
     private var okHttpClient: OkHttpClient? = null
+    @Volatile private var _apiService: ApiService? = null
 
     /**
      * 初始化（在 Application.onCreate 中调用）
@@ -56,7 +56,7 @@ object RetrofitClient {
             })
             .build()
 
-        apiService = Retrofit.Builder()
+        _apiService = Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient!!)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))

@@ -11,6 +11,7 @@ import com.maozi.weather.data.local.CachedWeather
 import com.maozi.weather.data.local.SettingsManager
 import com.maozi.weather.data.model.WeatherWarning
 import com.maozi.weather.data.repository.WeatherRepository
+import androidx.glance.appwidget.updateAll
 import com.maozi.weather.ui.widget.WeatherWidget
 
 /**
