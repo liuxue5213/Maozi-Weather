@@ -24,6 +24,18 @@ BASE_URL = "https://api.open-meteo.com/v1"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1"
 AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1"
 
+# 风向角度 → 中文方位（16 方位取整到 8 方位足够展示）
+_WIND_DIRS = ["北", "东北", "东", "东南", "南", "西南", "西", "西北"]
+
+
+def wind_dir_to_text(deg) -> str | None:
+    if deg is None:
+        return None
+    try:
+        return _WIND_DIRS[round(float(deg) / 45) % 8]
+    except (TypeError, ValueError):
+        return None
+
 
 class OpenMeteoClient:
     """Open-Meteo API 客户端"""
@@ -204,7 +216,8 @@ class OpenMeteoClient:
             "humidity": current.get("relative_humidity_2m"),
             "pressure": current.get("surface_pressure"),
             "wind_speed": current.get("wind_speed_10m"),
-            "wind_direction": current.get("wind_direction_10m"),
+            # 输出中文风向文本，与 QWeather 源保持一致（App 端按字符串解析）
+            "wind_direction": wind_dir_to_text(current.get("wind_direction_10m")),
             "precipitation": current.get("precipitation"),
             "weather_desc": weather_codes.get(weather_code, "未知"),
             "observe_time": current.get("time"),

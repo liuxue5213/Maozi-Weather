@@ -65,7 +65,7 @@ object RetrofitClient {
     }
 
     val apiService: ApiService
-        get() = checkNotNull(apiService) {
+        get() = checkNotNull(_apiService) {
             "RetrofitClient 未初始化，请在 Application.onCreate 中调用 init()"
         }
 }
