@@ -5,3 +5,5 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.24" apply false
     id("org.jetbrains.kotlin.kapt") version "1.9.24" apply false
 }
+
+# 触发 CI 重跑（Setup Android SDK 步骤基础设施抖动失败）
