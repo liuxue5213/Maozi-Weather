@@ -74,6 +74,7 @@ data class WeatherForecast(
     @SerialName("wind_direction") val windDirection: String? = null,
     @SerialName("wind_speed") val windSpeed: Double? = null,
     val pop: Double? = null,
+    val precipitation: Double? = null,
 )
 
 /**

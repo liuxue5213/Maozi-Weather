@@ -111,7 +111,7 @@ class MultiSourceWeatherService:
                 latitude=latitude,
                 longitude=longitude,
                 hourly=["temperature_2m", "relative_humidity_2m", "weather_code",
-                        "precipitation", "wind_speed_10m"],
+                        "precipitation", "precipitation_probability", "wind_speed_10m"],
                 daily=["weather_code", "temperature_2m_max", "temperature_2m_min",
                        "precipitation_sum", "wind_speed_10m_max",
                        "sunrise", "sunset"],

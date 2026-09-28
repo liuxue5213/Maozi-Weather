@@ -45,8 +45,9 @@ def _resolve_cors_origins() -> list:
     raw = settings.CORS_ORIGINS
     if raw:
         return [o.strip() for o in raw.split(",") if o.strip()]
-    # 开发环境放开全部来源；生产环境必须显式配置 CORS_ORIGINS
-    return ["*"] if settings.APP_DEBUG else []
+    # 未显式配置时放开全部来源（生产建议通过 CORS_ORIGINS 白名单收紧）。
+    # 不再返回空列表：空列表会拒绝一切跨域，导致直连部署的前端完全不可用。
+    return ["*"]
 
 
 _CORS_ORIGINS = _resolve_cors_origins()

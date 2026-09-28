@@ -55,6 +55,7 @@ import com.maozi.weather.data.model.WeatherForecastResponse
 import com.maozi.weather.data.model.WeatherRealtime
 import com.maozi.weather.data.model.WeatherWarning
 import com.maozi.weather.data.repository.WeatherRepository
+import com.maozi.weather.ui.HourlyTemperatureChart
 import com.maozi.weather.ui.WeatherIcons
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -294,7 +295,9 @@ fun WeatherDetailScreen(
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("24 小时预报", style = MaterialTheme.typography.titleMedium)
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
+                            HourlyTemperatureChart(hourly = hourly)
+                            Spacer(modifier = Modifier.height(8.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                                 items(hourly) { h ->
                                     val hour = h.forecastTime?.let { t ->
