@@ -77,10 +77,15 @@ class MultiSourceWeatherService:
             except Exception as e:
                 logger.warning(f"QWeather 实时天气失败: {e}")
 
-        # 4. 写入缓存
+        # 4. 写入缓存 + 实况快照落库（失败不影响主流程）
         if result:
             import json
             await redis.setex(cache_key, CACHE_TTL_REALTIME, json.dumps(result, default=str))
+            try:
+                from app.services.realtime_store import persist_realtime_snapshot
+                await persist_realtime_snapshot(result)
+            except Exception as e:
+                logger.warning(f"实况落库异常: {e}")
 
         return result
 
