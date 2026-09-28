@@ -78,7 +78,9 @@ class OpenMeteoClient:
         current: list[str] | None = None,
         hourly: list[str] | None = None,
         daily: list[str] | None = None,
+        minutely_15: list[str] | None = None,
         forecast_days: int = 16,
+        forecast_minutely_15: int = 8,
         timezone: str = "Asia/Shanghai",
     ) -> dict:
         """
@@ -90,7 +92,9 @@ class OpenMeteoClient:
             current: 当前天气变量列表
             hourly: 逐小时变量列表
             daily: 逐日变量列表
+            minutely_15: 15 分钟级变量列表（临近降水预报）
             forecast_days: 预报天数（1-16天）
+            forecast_minutely_15: 分钟级预报时段数（8 = 未来 2 小时）
             timezone: 时区
         """
         params = {
@@ -106,6 +110,9 @@ class OpenMeteoClient:
             params["hourly"] = ",".join(hourly)
         if daily:
             params["daily"] = ",".join(daily)
+        if minutely_15:
+            params["minutely_15"] = ",".join(minutely_15)
+            params["forecast_minutely_15"] = min(forecast_minutely_15, 96)
 
         return await self._request(self.base_url, "forecast", params)
 
@@ -277,6 +284,32 @@ class OpenMeteoClient:
         return result
 
     @staticmethod
+    @staticmethod
+    def normalize_minutely_15(data: dict, city_id: int) -> list[dict]:
+        """
+        标准化 15 分钟级临近降水预报（未来 2 小时）
+
+        Returns:
+            [{time, precipitation, precipitation_probability}, ...]
+        """
+        if not data or "minutely_15" not in data:
+            return []
+        m = data["minutely_15"]
+        times = m.get("time", [])
+        items = []
+        for i, t in enumerate(times):
+            items.append({
+                "city_id": city_id,
+                "forecast_type": "minutely_15",
+                "forecast_time": t,
+                "precipitation": m.get("precipitation", [None])[i] if i < len(m.get("precipitation", [])) else None,
+                "precipitation_probability": (
+                    m.get("precipitation_probability", [None])[i]
+                    if i < len(m.get("precipitation_probability", [])) else None
+                ),
+            })
+        return items
+
     def normalize_hourly_forecast(data: dict, city_id: int) -> list[dict]:
         """
         标准化逐小时预报数据

@@ -94,7 +94,8 @@ class MultiSourceWeatherService:
             dict: {daily: [...], hourly: [...], sun: {...}}
         """
         redis = await get_redis()
-        cache_key = f"weather:forecast:{city_id}"
+        # key 含 days：不同天数请求不共享缓存（7 天请求可能命中 16 天缓存）
+        cache_key = f"weather:forecast:{city_id}:{days}"
 
         # 1. 查缓存
         cached = await redis.get(cache_key)
@@ -102,7 +103,7 @@ class MultiSourceWeatherService:
             import json
             return json.loads(cached)
 
-        result = {"daily": [], "hourly": [], "sun": None}
+        result = {"daily": [], "hourly": [], "minutely": [], "sun": None}
 
         # 2. 尝试 Open-Meteo（支持16天）
         try:
@@ -114,12 +115,15 @@ class MultiSourceWeatherService:
                 daily=["weather_code", "temperature_2m_max", "temperature_2m_min",
                        "precipitation_sum", "wind_speed_10m_max",
                        "sunrise", "sunset"],
+                minutely_15=["precipitation", "precipitation_probability"],
                 forecast_days=days,
+                forecast_minutely_15=8,
             )
             # 注意：hourly 和 daily 是分开的参数，不是嵌套关系
 
             result["daily"] = open_meteo_client.normalize_daily_forecast(data, city_id)
             result["hourly"] = open_meteo_client.normalize_hourly_forecast(data, city_id)
+            result["minutely"] = open_meteo_client.normalize_minutely_15(data, city_id)
 
             # 提取日出日落
             if data.get("daily", {}).get("sunrise"):

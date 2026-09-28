@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,10 +62,11 @@ fun HomeScreen(
     var cities by remember { mutableStateOf<List<UserCity>>(emptyList()) }
     var realtimeMap by remember { mutableStateOf<Map<Int, WeatherRealtime?>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        loading = true
+    // 加载关注城市 + 实况；网络失败回退本地缓存
+    suspend fun loadData() {
         try {
             val list = WeatherRepository.getMyCities()
             cities = list
@@ -113,9 +115,13 @@ fun HomeScreen(
                     windSpeed = c.windSpeed,
                 )
             }
-        } finally {
-            loading = false
         }
+    }
+
+    LaunchedEffect(Unit) {
+        loading = true
+        loadData()
+        loading = false
     }
 
     Scaffold(
@@ -166,28 +172,41 @@ fun HomeScreen(
                 }
             }
             else -> {
-                LazyColumn(
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = {
+                        scope.launch {
+                            refreshing = true
+                            loadData()
+                            refreshing = false
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(padding),
                 ) {
-                    item { Spacer(modifier = Modifier.height(4.dp)) }
-                    items(cities) { uc ->
-                        val rt = realtimeMap[uc.cityId]
-                        WeatherCard(
-                            cityId = uc.cityId,
-                            cityName = uc.city.cityName,
-                            temperature = rt?.temperature,
-                            weatherDesc = rt?.weatherDesc,
-                            onClick = {
-                                WeatherRepository.selectedUserCity = uc
-                                onCityClick(uc.cityId)
-                            },
-                        )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        item { Spacer(modifier = Modifier.height(4.dp)) }
+                        items(cities) { uc ->
+                            val rt = realtimeMap[uc.cityId]
+                            WeatherCard(
+                                cityId = uc.cityId,
+                                cityName = uc.city.cityName,
+                                temperature = rt?.temperature,
+                                weatherDesc = rt?.weatherDesc,
+                                onClick = {
+                                    WeatherRepository.selectedUserCity = uc
+                                    onCityClick(uc.cityId)
+                                },
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(4.dp)) }
                     }
-                    item { Spacer(modifier = Modifier.height(4.dp)) }
                 }
             }
         }

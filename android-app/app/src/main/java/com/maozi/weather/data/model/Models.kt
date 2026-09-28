@@ -83,7 +83,17 @@ data class WeatherForecast(
 data class WeatherForecastResponse(
     val daily: List<WeatherForecast> = emptyList(),
     val hourly: List<WeatherForecast> = emptyList(),
+    /** 15 分钟级临近降水（未来 2 小时），Open-Meteo 源可用 */
+    val minutely: List<MinutelyPrecip> = emptyList(),
     val sun: SunInfo? = null,
+)
+
+/** 15 分钟级临近降水条目 */
+@Serializable
+data class MinutelyPrecip(
+    @SerialName("forecast_time") val forecastTime: String,
+    val precipitation: Double? = null,
+    @SerialName("precipitation_probability") val precipitationProbability: Double? = null,
 )
 
 @Serializable
