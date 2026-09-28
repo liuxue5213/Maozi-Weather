@@ -17,6 +17,8 @@ jobs:
   build-debug:
     name: Build Debug APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     defaults:
       run:
@@ -55,7 +57,6 @@ jobs:
 
       - name: Build debug APK
         run: |
-          # 失败时把 gradle 输出尾部写入公开的 step summary，便于无需登录排查
           ./gradlew assembleDebug --no-daemon > /tmp/gradle.log 2>&1 || (
             echo "### Gradle build failure (tail 150 lines)" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -63,6 +64,19 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           )
+
+      - name: Dump gradle log to ci-debug-log branch on failure
+        if: failure()
+        working-directory: ${{ github.workspace }}
+        run: |
+          tail -n 250 /tmp/gradle.log > gradle-failure.log || echo "no log" > gradle-failure.log
+          git config user.name "ci-log-bot"
+          git config user.email "ci@maozi.weather"
+          git fetch origin ci-debug-log 2>/dev/null || true
+          git checkout -B ci-debug-log
+          git add gradle-failure.log
+          git commit -m "ci: gradle failure log (${{ github.run_number }})"
+          git push origin ci-debug-log --force
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
