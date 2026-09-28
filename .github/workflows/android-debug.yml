@@ -54,7 +54,15 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          # 失败时把 gradle 输出尾部写入公开的 step summary，便于无需登录排查
+          ./gradlew assembleDebug --no-daemon > /tmp/gradle.log 2>&1 || (
+            echo "### Gradle build failure (tail 150 lines)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 150 /tmp/gradle.log >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          )
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
