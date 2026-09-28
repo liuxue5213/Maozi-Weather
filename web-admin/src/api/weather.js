@@ -29,3 +29,8 @@ export function getHistorical(cityId, latitude, longitude, startDate, endDate) {
     params: { latitude, longitude, start_date: startDate, end_date: endDate },
   })
 }
+
+// 关注城市实况快照（weather_realtime 最新落库数据）
+export function getSnapshots() {
+  return request({ url: '/weather/snapshots' })
+}

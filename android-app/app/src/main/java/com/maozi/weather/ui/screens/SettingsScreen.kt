@@ -185,7 +185,7 @@ fun SettingsScreen(
             )
             ListItem(
                 headlineContent = { Text("版本") },
-                supportingContent = { Text("0.1.0") },
+                supportingContent = { Text("0.2.0") },
                 leadingContent = { Icon(Icons.Filled.NewReleases, contentDescription = null) },
             )
         }

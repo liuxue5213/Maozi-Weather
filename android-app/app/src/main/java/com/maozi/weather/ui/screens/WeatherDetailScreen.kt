@@ -1,7 +1,9 @@
 package com.maozi.weather.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,8 +43,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,6 +67,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlin.math.cos
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -395,7 +401,14 @@ fun WeatherDetailScreen(
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("日出日落", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (sun?.sunrise != null && sun?.sunset != null) {
+                            DayNightArc(
+                                sunrise = parseTime(sun!!.sunrise!!),
+                                sunset = parseTime(sun!!.sunset!!),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -496,8 +509,67 @@ private fun RainNowcastCard(minutely: List<MinutelyPrecip>) {
 }
 
 /** 气象预警横幅：按预警级别着色的描边卡片 */
+/**
+ * 日出日落弧线：半圆轨迹 + 当前太阳位置标记。
+ * 夜间（已日落/未日出）太阳点隐藏，只显示轨迹。
+ */
+@Composable
+private fun DayNightArc(
+    sunrise: LocalTime?,
+    sunset: LocalTime?,
+    modifier: Modifier = Modifier,
+) {
+    if (sunrise == null || sunset == null || sunset <= sunrise) return
+    val now = LocalTime.now()
+    val fraction = ((now.toSecondOfDay() - sunrise.toSecondOfDay()).toFloat() /
+            (sunset.toSecondOfDay() - sunrise.toSecondOfDay()).toFloat()).coerceIn(0f, 1f)
+    val daytime = now >= sunrise && now <= sunset
+
+    val arcColor = Color(0xFFFFB300)
+    val trackColor = Color(0x3390CAF9)
+
+    Canvas(modifier = modifier.fillMaxWidth().height(90.dp)) {
+        val w = size.width
+        val arcTop = 18.dp.toPx()
+        val radius = w / 2f - 16.dp.toPx()
+        val centerX = w / 2f
+        val bottomY = arcTop + radius
+        val rect = androidx.compose.ui.geometry.Rect(
+            centerX - radius, arcTop, centerX + radius, arcTop + 2 * radius,
+        )
+
+        // 轨迹（完整半圆，下弧不可见部分画浅色）
+        drawArc(
+            color = trackColor,
+            startAngle = 180f, sweepAngle = 180f, useCenter = false,
+            topLeft = rect.topLeft, size = rect.size,
+            style = Stroke(width = 6f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+        )
+        // 已走过路径
+        drawArc(
+            color = arcColor,
+            startAngle = 180f, sweepAngle = 180f * fraction, useCenter = false,
+            topLeft = rect.topLeft, size = rect.size,
+            style = Stroke(width = 6f, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+        )
+
+        // 地平线
+        drawLine(trackColor, Offset(centerX - radius, bottomY), Offset(centerX + radius, bottomY), 3f)
+
+        // 太阳当前位置（白天才画）
+        if (daytime) {
+            val angle = Math.toRadians((180.0 + 180.0 * fraction))
+            val sunX = centerX + radius * kotlin.math.cos(angle).toFloat()
+            val sunY = arcTop + radius + radius * kotlin.math.sin(angle).toFloat()
+            drawCircle(Color(0xFFFFD54F), radius = 22f, center = Offset(sunX, sunY))
+            drawCircle(Color(0xFFFFF59D), radius = 34f, center = Offset(sunX, sunY), alpha = 0.4f)
+        }
+    }
+}
+
 @Composable
 private fun WarningBanner(w: WeatherWarning) {
+    var expanded by remember { mutableStateOf(false) }
     val color = when (w.warningLevel) {
         "红色" -> Color(0xFFD32F2F)
         "橙色" -> Color(0xFFF57C00)
@@ -508,7 +580,8 @@ private fun WarningBanner(w: WeatherWarning) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
+            .border(1.dp, color.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+            .clickable { expanded = !expanded },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.10f)),
     ) {
@@ -532,7 +605,13 @@ private fun WarningBanner(w: WeatherWarning) {
                     text = w.content,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 3,
+                    maxLines = if (expanded) Int.MAX_VALUE else 3,
+                )
+                Text(
+                    text = if (expanded) "收起" else "点击展开全文",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = color,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }

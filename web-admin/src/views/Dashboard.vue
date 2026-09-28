@@ -57,6 +57,21 @@
       </div>
     </div>
 
+    <!-- 关注城市实况快照 -->
+    <div v-if="snapshots.length" class="snapshots-section">
+      <h3 class="section-title">关注城市实况</h3>
+      <div class="snapshots-grid">
+        <div v-for="s in snapshots" :key="s.city_id" class="snapshot-card">
+          <div class="snapshot-icon">{{ weatherIconFor(s.weather_desc) }}</div>
+          <div class="snapshot-info">
+            <div class="snapshot-city">{{ s.city_name }}</div>
+            <div class="snapshot-desc">{{ s.weather_desc || '—' }}</div>
+          </div>
+          <div class="snapshot-temp">{{ s.temperature != null ? Math.round(s.temperature) : '—' }}°</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 系统状态 -->
     <div class="system-status">
       <h3 class="section-title">系统状态</h3>
@@ -85,7 +100,7 @@
     </div>
 
     <div class="footer-note">
-      帽子天气 · 数据来源：中国气象局
+      帽子天气 · 数据来源：Open-Meteo（和风天气备源）
     </div>
   </div>
 </template>
@@ -93,6 +108,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getStats } from '@/api/stats'
+import { getSnapshots } from '@/api/weather'
 
 const stats = ref({
   cityCount: 0,
@@ -100,6 +116,22 @@ const stats = ref({
   syncTasks: 0,
   historyRecords: 0,
 })
+const snapshots = ref([])
+
+// 与 App 端一致的天气描述 → 图标映射
+function weatherIconFor(desc) {
+  if (!desc) return '☁️'
+  if (desc.includes('雷')) return '⛈️'
+  if (desc.includes('大雨') || desc.includes('暴雨')) return '🌧️'
+  if (desc.includes('雨')) return '🌦️'
+  if (desc.includes('雪') || desc.includes('冰')) return '❄️'
+  if (desc.includes('雾') || desc.includes('霾')) return '🌫️'
+  if (desc.includes('沙') || desc.includes('尘')) return '💨'
+  if (desc.includes('阴')) return '☁️'
+  if (desc.includes('多云')) return '⛅'
+  if (desc.includes('晴')) return '☀️'
+  return '☁️'
+}
 
 // 超过一万显示 x.x万，避免长数字撑爆卡片
 function formatCount(n) {
@@ -113,6 +145,12 @@ onMounted(async () => {
     if (res) stats.value = { ...stats.value, ...res }
   } catch (error) {
     // 统计加载失败保持 0 展示，错误已由拦截器提示
+  }
+  try {
+    const list = await getSnapshots()
+    snapshots.value = Array.isArray(list) ? list : []
+  } catch (error) {
+    // 快照接口失败静默（表可能还没有数据）
   }
 })
 
@@ -312,5 +350,51 @@ const weatherEmoji = computed(() => {
   color: #bbb;
   font-size: 12px;
   padding: 16px;
+}
+
+.snapshots-section {
+  margin-top: 24px;
+
+  .snapshots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .snapshot-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .snapshot-icon {
+    font-size: 28px;
+  }
+
+  .snapshot-info {
+    flex: 1;
+    min-width: 0;
+
+    .snapshot-city {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .snapshot-desc {
+      font-size: 12px;
+      color: #999;
+    }
+  }
+
+  .snapshot-temp {
+    font-size: 22px;
+    font-weight: 700;
+    color: #409eff;
+  }
 }
 </style>

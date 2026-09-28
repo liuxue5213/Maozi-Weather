@@ -6,10 +6,13 @@
 - QWeather：增强数据源（需 API Key）
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.models.city import UserCity
 from app.models.user import User
+from app.models.weather import WeatherRealtime
 from app.routers.auth import get_current_user
 from app.schemas.weather import (
     WeatherForecastOut,
@@ -20,6 +23,45 @@ from app.schemas.air_quality import AirQualityOut, LifeIndexOut
 from app.services.multi_source_weather import multi_source_weather
 
 router = APIRouter()
+
+
+@router.get("/snapshots")
+async def get_followed_snapshots(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """当前用户关注城市的实况快照（weather_realtime 最新落库数据）。
+
+    返回 [{city_id, city_name, temperature, weather_desc, humidity,
+           wind_direction, wind_speed, observe_time, data_source}, ...]，
+    尚未有快照的城市不出现在结果中。
+    """
+    from app.models.city import City
+
+    result = await db.execute(
+        select(UserCity, City, WeatherRealtime)
+        .join(City, City.id == UserCity.city_id)
+        .join(WeatherRealtime, WeatherRealtime.city_id == UserCity.city_id, isouter=True)
+        .where(UserCity.user_id == current_user.id)
+        .order_by(UserCity.sort_order, UserCity.id)
+    )
+
+    items = []
+    for uc, city, snapshot in result.all():
+        if snapshot is None:
+            continue
+        items.append({
+            "city_id": uc.city_id,
+            "city_name": city.city_name if city else None,
+            "temperature": snapshot.temperature,
+            "weather_desc": snapshot.weather_desc,
+            "humidity": snapshot.humidity,
+            "wind_direction": snapshot.wind_direction,
+            "wind_speed": snapshot.wind_speed,
+            "observe_time": snapshot.observe_time.isoformat() if snapshot.observe_time else None,
+            "data_source": snapshot.data_source,
+        })
+    return items
 
 
 @router.get("/realtime/{city_id}", response_model=WeatherRealtimeOut)
