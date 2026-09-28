@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -46,12 +47,16 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var notificationsEnabled by remember { mutableStateOf(true) }
+    var rainAlertEnabled by remember { mutableStateOf(true) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showClearConfirm by remember { mutableStateOf(false) }
     var clearing by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        scope.launch { notificationsEnabled = SettingsManager.isNotificationsEnabled(context) }
+        scope.launch {
+            notificationsEnabled = SettingsManager.isNotificationsEnabled(context)
+            rainAlertEnabled = SettingsManager.isRainAlertEnabled(context)
+        }
     }
 
     if (showLogoutConfirm) {
@@ -140,6 +145,22 @@ fun SettingsScreen(
                         onCheckedChange = { v ->
                             notificationsEnabled = v
                             scope.launch { SettingsManager.setNotificationsEnabled(context, v) }
+                        },
+                    )
+                },
+            )
+            ListItem(
+                headlineContent = { Text("降水提醒") },
+                supportingContent = {
+                    Text(if (rainAlertEnabled) "未来 2 小时有雨时通知（约每 15 分钟检测）" else "已关闭")
+                },
+                leadingContent = { Icon(Icons.Filled.WaterDrop, contentDescription = null) },
+                trailingContent = {
+                    Switch(
+                        checked = rainAlertEnabled,
+                        onCheckedChange = { v ->
+                            rainAlertEnabled = v
+                            scope.launch { SettingsManager.setRainAlertEnabled(context, v) }
                         },
                     )
                 },

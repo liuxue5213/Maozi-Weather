@@ -61,9 +61,33 @@ class WeatherRefreshWorker(
                         .filter { it.effective == 1 }
                         .forEach { postWarning(cityName, it) }
                 }
+
+                // 3. 降水提醒：未来 2 小时（15 分钟粒度）累计降水达到阈值时推送一次
+                if (SettingsManager.isRainAlertEnabled(appContext)) {
+                    runCatching {
+                        WeatherRepository.getForecast(cityId, lat, lon, 1)
+                    }.getOrNull()?.minutely?.let { minutely ->
+                        val total = minutely.sumOf { it.precipitation ?: 0.0 }
+                        if (total >= RAIN_ALERT_THRESHOLD_MM) {
+                            val epochHour = System.currentTimeMillis() / 3_600_000
+                            val bucket = epochHour / 2 // 2 小时窗口去重
+                            val startTime = minutely
+                                .firstOrNull { (it.precipitation ?: 0.0) >= 0.1 }
+                                ?.forecastTime?.let { t ->
+                                    runCatching {
+                                        java.time.LocalDateTime.parse(t.take(19))
+                                            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                                    }.getOrNull()
+                                }
+                            if (SettingsManager.shouldSendRainAlert(appContext, cityId, bucket)) {
+                                postRainAlert(cityName, total, startTime)
+                            }
+                        }
+                    }
+                }
             }
 
-            // 3. 数据更新后刷新桌面小组件
+            // 4. 数据更新后刷新桌面小组件
             try {
                 WeatherWidget().updateAll(appContext)
             } catch (_: Exception) {
@@ -76,8 +100,27 @@ class WeatherRefreshWorker(
         }
     }
 
-    private fun postWarning(cityName: String, warning: WeatherWarning) {
-        val title = buildString {
+    private fun postRainAlert(cityName: String, total: Double, startTime: String?) {
+        val title = "$cityName 降水提醒"
+        val text = buildString {
+            append(if (startTime != null) "预计 $startTime 开始有雨" else "未来 2 小时有降水")
+            append("，累计约 %.1f mm".format(total))
+            append("，出门记得带伞 ☔")
+        }
+        val notification = NotificationCompat.Builder(appContext, WeatherApplication.WARNING_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        val manager = appContext.getSystemService(NotificationManager::class.java)
+        manager.notify(("rain$cityName$startTime").hashCode(), notification)
+    }
+
+    private fun postWarning(cityName: String, warning: WeatherWarning) {        val title = buildString {
             append(cityName)
             warning.warningType?.let { append(" $it") }
             append("预警")
@@ -93,5 +136,10 @@ class WeatherRefreshWorker(
         val manager = appContext.getSystemService(NotificationManager::class.java)
         val notificationId = (cityName + (warning.warningId ?: "")).hashCode()
         manager.notify(notificationId, notification)
+    }
+
+    companion object {
+        /** 未来 2 小时累计降水提醒阈值（mm），小雨起步量级 */
+        const val RAIN_ALERT_THRESHOLD_MM = 0.5
     }
 }

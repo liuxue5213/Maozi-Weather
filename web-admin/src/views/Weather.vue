@@ -121,6 +121,13 @@
       <el-empty v-if="!forecast.length" description="请选择城市" />
     </div>
 
+    <!-- 24小时温度曲线 -->
+    <div class="card" style="margin-top: 20px">
+      <h3>24小时温度趋势</h3>
+      <div v-show="hourly.length" ref="hourlyChartRef" class="forecast-chart"></div>
+      <el-empty v-if="!hourly.length" description="请选择城市" />
+    </div>
+
     <div class="data-source-tag">数据来源：{{ dataSource || 'Open-Meteo（和风天气增强）' }} | 帽子天气</div>
   </div>
 </template>
@@ -146,7 +153,10 @@ const sunInfo = ref(null)
 const dataSource = ref('')
 const loading = ref(false)
 const forecastChartRef = ref(null)
+const hourlyChartRef = ref(null)
+const hourly = ref([])
 let forecastChart = null
+let hourlyChart = null
 
 const aqiColor = computed(() => aqiLevelColor(airQuality.value?.aqi))
 
@@ -244,6 +254,71 @@ function renderForecastChart() {
 
 function handleResize() {
   forecastChart?.resize()
+  hourlyChart?.resize()
+}
+
+// 渲染 24 小时温度曲线（含降水柱）
+function renderHourlyChart() {
+  if (!hourlyChartRef.value || !hourly.value.length) return
+  if (!hourlyChart) {
+    hourlyChart = echarts.init(hourlyChartRef.value)
+  }
+  const dark = isDark.value
+  const axisColor = dark ? '#A3A6AD' : '#606266'
+  const splitColor = dark ? 'rgba(255,255,255,0.12)' : '#EBEEF5'
+  const hours = hourly.value.map(h => (h.forecast_time || '').slice(11, 16))
+  const temps = hourly.value.map(h => h.temperature ?? null)
+  const precip = hourly.value.map(h => h.precipitation ?? 0)
+
+  hourlyChart.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis' },
+    legend: {
+      data: ['温度', '降水量'],
+      textStyle: { color: axisColor },
+      top: 0,
+    },
+    grid: { left: 48, right: 48, top: 36, bottom: 28 },
+    xAxis: {
+      type: 'category',
+      data: hours,
+      axisLabel: { color: axisColor },
+      axisLine: { lineStyle: { color: splitColor } },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '°C',
+        nameTextStyle: { color: axisColor },
+        axisLabel: { color: axisColor },
+        splitLine: { lineStyle: { color: splitColor } },
+      },
+      {
+        type: 'value',
+        name: 'mm',
+        nameTextStyle: { color: axisColor },
+        axisLabel: { color: axisColor },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '温度',
+        type: 'line',
+        smooth: true,
+        data: temps,
+        itemStyle: { color: '#F56C6C' },
+        areaStyle: { color: 'rgba(245,108,108,0.12)' },
+      },
+      {
+        name: '降水量',
+        type: 'bar',
+        yAxisIndex: 1,
+        data: precip,
+        itemStyle: { color: 'rgba(64,158,255,0.4)', borderRadius: [3, 3, 0, 0] },
+      },
+    ],
+  })
 }
 
 // 加载城市列表
@@ -300,12 +375,14 @@ async function fetchWeather() {
     ])
 
     forecast.value = forecastRes.daily || []
+    hourly.value = (forecastRes.hourly || []).slice(0, 24)
     warnings.value = warningRes
     airQuality.value = airRes
     lifeIndices.value = lifeRes
     sunInfo.value = sunRes
     await nextTick()
     renderForecastChart()
+    renderHourlyChart()
   } catch (error) {
     console.error('获取天气数据失败:', error)
     ElMessage.error('获取天气数据失败')
@@ -316,7 +393,10 @@ async function fetchWeather() {
 
 // 暗色模式切换后重绘图表配色
 watch(isDark, () => {
-  nextTick(renderForecastChart)
+  nextTick(() => {
+    renderForecastChart()
+    renderHourlyChart()
+  })
 })
 
 function warningType(level) {
@@ -342,6 +422,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   forecastChart?.dispose()
   forecastChart = null
+  hourlyChart?.dispose()
+  hourlyChart = null
 })
 </script>
 

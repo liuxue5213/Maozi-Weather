@@ -1,5 +1,6 @@
 package com.maozi.weather.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +41,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.sp
 import com.maozi.weather.data.local.CachedWeather
 import com.maozi.weather.data.model.City
@@ -61,6 +65,7 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var cities by remember { mutableStateOf<List<UserCity>>(emptyList()) }
     var realtimeMap by remember { mutableStateOf<Map<Int, WeatherRealtime?>>(emptyMap()) }
+    var heroToday by remember { mutableStateOf<com.maozi.weather.data.model.WeatherForecast?>(null) }
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -95,6 +100,16 @@ fun HomeScreen(
                 }
             }
             realtimeMap = map
+
+            // 首页顶部大卡：取第一个城市的今日预报（最高/最低温），失败静默
+            val first = list.firstOrNull()
+            val flat = first?.city?.latitude
+            val flon = first?.city?.longitude
+            heroToday = if (first != null && flat != null && flon != null) {
+                runCatching {
+                    WeatherRepository.getForecast(first.cityId, flat, flon, 1).daily.firstOrNull()
+                }.getOrNull()
+            } else null
         } catch (e: Exception) {
             // 网络异常时回退到本地缓存
             error = "网络异常，已加载本地缓存"
@@ -192,7 +207,25 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         item { Spacer(modifier = Modifier.height(4.dp)) }
-                        items(cities) { uc ->
+                        // 顶部大卡：第一个关注城市
+                        val hero = cities.firstOrNull()
+                        if (hero != null) {
+                            val heroRt = realtimeMap[hero.cityId]
+                            item(key = "hero") {
+                                HeroWeatherCard(
+                                    cityName = hero.city.cityName,
+                                    temperature = heroRt?.temperature,
+                                    weatherDesc = heroRt?.weatherDesc,
+                                    tempMax = heroToday?.tempMax,
+                                    tempMin = heroToday?.tempMin,
+                                    onClick = {
+                                        WeatherRepository.selectedUserCity = hero
+                                        onCityClick(hero.cityId)
+                                    },
+                                )
+                            }
+                        }
+                        items(cities.drop(1), key = { it.id }) { uc ->
                             val rt = realtimeMap[uc.cityId]
                             WeatherCard(
                                 cityId = uc.cityId,
@@ -213,9 +246,82 @@ fun HomeScreen(
     }
 }
 
+/**
+ * 首页顶部大卡：渐变背景 + 大字温度 + 今日最高/最低温
+ */
 @Composable
-fun WeatherCard(
-    cityId: Int,
+fun HeroWeatherCard(
+    cityName: String,
+    temperature: Double?,
+    weatherDesc: String?,
+    tempMax: Double?,
+    tempMin: Double?,
+    onClick: () -> Unit,
+) {
+    val night = WeatherIcons.isNight(java.time.LocalTime.now().hour)
+    val (gradStart, gradEnd) = WeatherIcons.gradientFor(weatherDesc, night)
+    val gradStartColor = Color(gradStart)
+    val gradEndColor = Color(gradEnd)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(listOf(gradStartColor, gradEndColor)),
+                )
+                .padding(vertical = 26.dp, horizontal = 20.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = cityName,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = androidx.compose.ui.graphics.Color.White,
+                    )
+                    Text(
+                        text = weatherDesc ?: "—",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
+                    )
+                    if (tempMax != null || tempMin != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "最高 ${tempMax?.toInt() ?: "-"}° · 最低 ${tempMin?.toInt() ?: "-"}°",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.8f),
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = WeatherIcons.iconFor(weatherDesc),
+                        fontSize = 44.sp,
+                    )
+                    Text(
+                        text = if (temperature != null) "${temperature.toInt()}°" else "—",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = androidx.compose.ui.graphics.Color.White,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WeatherCard(    cityId: Int,
     cityName: String,
     temperature: Double?,
     weatherDesc: String?,
