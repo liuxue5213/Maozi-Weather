@@ -65,6 +65,14 @@ jobs:
             exit 1
           )
 
+      - name: Emit log tail as annotations on failure
+        if: failure()
+        run: |
+          # ::error:: workflow commands 会成为 check-run annotations，匿名 API 可读
+          grep -nE "FAILURE|What went wrong|Caused by|Exception|error:|^e: |FAILED" /tmp/gradle.log 2>/dev/null | head -12 | cut -c1-400 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+
       - name: Dump gradle log to ci-debug-log branch on failure
         if: failure()
         working-directory: ${{ github.workspace }}
