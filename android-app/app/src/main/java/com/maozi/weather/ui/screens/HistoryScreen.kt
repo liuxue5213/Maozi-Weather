@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -42,9 +44,26 @@ import androidx.compose.ui.unit.dp
 import com.maozi.weather.data.model.UserCity
 import com.maozi.weather.data.model.WeatherHistory
 import com.maozi.weather.data.repository.WeatherRepository
+import com.maozi.weather.ui.HistoryTemperatureChart
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
+// 图例颜色（与 HistoryTemperatureChart 保持一致）
+private val HIGH = androidx.compose.ui.graphics.Color(0xFFF56C6C)
+private val LOW = androidx.compose.ui.graphics.Color(0xFF409EFF)
+private val RAIN = androidx.compose.ui.graphics.Color(0x8042A5F5)
+
+@Composable
+private fun LegendDot(color: androidx.compose.ui.graphics.Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.foundation.Canvas(Modifier.size(8.dp)) {
+            drawCircle(color)
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,6 +207,22 @@ fun HistoryScreen(onBack: () -> Unit) {
                 !loaded -> Text("暂无数据，请选择城市与时间范围后刷新")
                 history.isEmpty() -> Text("该时间段暂无历史数据")
                 else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp)) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    LegendDot(HIGH, "最高温")
+                                    LegendDot(LOW, "最低温")
+                                    LegendDot(RAIN, "降水量")
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                HistoryTemperatureChart(history = history)
+                            }
+                        }
+                    }
                     items(history) { item -> HistoryItemCard(item) }
                 }
             }
